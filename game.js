@@ -1,27 +1,91 @@
-import { createEventBus, createGameState, getInventoryAmount, getResourceQuantity, getSkill } from './core.js';
-import { BIOMES, BIOME_ASSIGNMENTS, CONFIG, ITEMS, RECIPES, RESOURCE_NODES, RESOURCE_NODES_BY_POSITION, SKILLS, SKILL_NODES } from './content.js';
-import { createBiomeRegistry } from './biomes.js';
-import { createRules } from './systems.js';
-import { createCraftingRules } from './crafting.js';
-import { SAVE_KEY, applyLoadedState, clearSave, readSave, saveGame } from './persistence.js';
+import { createInitialState, executeCommand, getVisibleState } from './core.js';
+import { renderBoard, renderLog, renderStatus } from './systems.js';
+import { clearSave, readSave, saveGame, applyLoadedState } from './persistence.js';
 
-const elements = { grid: document.querySelector('#grid'), inspector: document.querySelector('#state-inspector'), consoleOutput: document.querySelector('#console-output'), consoleForm: document.querySelector('#console-form'), consoleInput: document.querySelector('#console-input'), resetButton: document.querySelector('#reset-button'), statusBadge: document.querySelector('#status-badge') };
-const eventBus = createEventBus(); const state = createGameState(CONFIG.startPosition, RESOURCE_NODES, SKILLS); const biomes = createBiomeRegistry(BIOMES, BIOME_ASSIGNMENTS); const rules = createRules({ config: CONFIG, resourceNodesByPosition: RESOURCE_NODES_BY_POSITION, eventBus, skills: SKILLS, skillNodes: SKILL_NODES, biomeRegistry: biomes }); const crafting = createCraftingRules({ recipes: RECIPES, eventBus });
-function setStatus(message) { elements.statusBadge.textContent = message; }
-function inventoryText() { const entries = Object.entries(state.inventory).filter(([, amount]) => amount > 0).map(([id, amount]) => `${ITEMS[id]?.name ?? id}: ${amount}`); return entries.length ? entries.join(', ') : 'Empty'; }
-function recipeText() { return Object.values(RECIPES).map(recipe => { const inputs = Object.entries(recipe.inputs).map(([id, amount]) => `${amount} ${ITEMS[id]?.name ?? id}`).join(', '); const materials = Object.entries(recipe.inputs).every(([id, amount]) => getInventoryAmount(state, id) >= amount); const requirement = rules.evaluateRequirement(state, recipe.requirements); const status = !requirement.met ? requirement.reasons.join(' ') : materials ? 'Available' : 'Missing materials'; return `${recipe.id}\nRequires: ${inputs}\nProduces: ${recipe.output.amount} ${ITEMS[recipe.output.itemId]?.name ?? recipe.output.itemId}\nStatus: ${status}`; }).join('\n\n'); }
-function render() { elements.grid.replaceChildren(); for (let y = 0; y < CONFIG.gridHeight; y += 1) for (let x = 0; x < CONFIG.gridWidth; x += 1) { const cell = document.createElement('div'); const node = RESOURCE_NODES_BY_POSITION.get(`${x},${y}`); cell.className = `cell ${biomes.getBiomeAt(x, y).visualClass}`; cell.setAttribute('aria-label', `Cell ${x}, ${y}`); if (rules.isBlocked(x, y)) cell.classList.add('blocked'); if (node && getResourceQuantity(state, node.id) > 0) { cell.classList.add('resource'); cell.title = `${node.name} (${getResourceQuantity(state, node.id)} remaining)`; } if (state.player.x === x && state.player.y === y) cell.classList.add('player'); elements.grid.append(cell); } elements.grid.style.gridTemplateColumns = `repeat(${CONFIG.gridWidth}, 1fr)`; elements.grid.style.gridTemplateRows = `repeat(${CONFIG.gridHeight}, 1fr)`; const remaining = Object.values(RESOURCE_NODES).reduce((n, node) => n + getResourceQuantity(state, node.id), 0); const maximum = Object.values(RESOURCE_NODES).reduce((n, node) => n + node.maxQuantity, 0); const skill = getSkill(state, 'foraging'); const biome = biomes.getBiomeAt(state.player.x, state.player.y); elements.inspector.innerHTML = `<dt>Position</dt><dd>${state.player.x}, ${state.player.y}</dd><dt>Biome</dt><dd>${biome.name}</dd><dt>Foraging</dt><dd>Level ${skill.level}; ${skill.xp} XP</dd><dt>Inventory</dt><dd>${inventoryText()}</dd><dt>Resources</dt><dd>${remaining}/${maximum}</dd>`; }
-const write = (message, type = 'system') => { if (!elements.consoleOutput) return; const line = document.createElement('div'); line.className = `console-line ${type}`; line.textContent = message; elements.consoleOutput.append(line); elements.consoleOutput.scrollTop = elements.consoleOutput.scrollHeight; };
-function show(result) { setStatus(result.success ? 'Ready' : 'Failed'); write(`${result.code ?? (result.success ? 'OK' : 'ERROR')}: ${result.message}`, result.success ? 'system' : 'error'); render(); }
-function move(dx, dy) { show(rules.move(state, dx, dy)); }
-function gather() { show(rules.gather(state)); }
-function teleport(x, y) { show(rules.teleport(state, x, y)); }
-function inspectCell(x, y) { if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= CONFIG.gridWidth || y >= CONFIG.gridHeight) return write('ERROR: Usage: inspectcell <x> <y>', 'error'); write(JSON.stringify({ x, y, biome: biomes.getBiomeAt(x, y), resource: RESOURCE_NODES_BY_POSITION.get(`${x},${y}`) ?? null }, null, 2)); }
-function executeCommand(raw) { const [command, ...args] = raw.trim().toLowerCase().split(/\s+/); if (!command) return; if (command === 'help') write('Commands: help, state, actions, recipes, biome, inspectcell x y, validatebiomes, save, load, clearsave, craft recipeId, teleport x y, gather, refill, time, advance n, respawns, tests, reset, clear.'); else if (command === 'state') write(JSON.stringify(state, null, 2)); else if (command === 'actions') write(JSON.stringify(state.actionLog, null, 2)); else if (command === 'recipes') write(recipeText()); else if (command === 'biome') write(JSON.stringify(biomes.getBiomeAt(state.player.x, state.player.y), null, 2)); else if (command === 'inspectcell') inspectCell(Number(args[0]), Number(args[1])); else if (command === 'validatebiomes') { const result = biomes.validateResourceNodes(RESOURCE_NODES); write(result.valid ? 'BIOMESVALID: All resource biome placements are valid.' : `BIOMESINVALID: ${result.errors.join(' ')}`, result.valid ? 'system' : 'error'); } else if (command === 'tests') write('Run the existing test suite from the current stable build.'); else if (command === 'gather') gather(); else if (command === 'craft') show(crafting.craft(state, args[0])); else if (command === 'refill') show(rules.refillResources(state, RESOURCE_NODES)); else if (command === 'teleport') teleport(Number(args[0]), Number(args[1])); else if (command === 'time') { write(`TIME: World time ${state.worldTime}.`); render(); } else if (command === 'advance') { const n = Number(args[0]); if (!Number.isInteger(n) || n < 1) write('ERROR: Usage: advance <positive integer>.', 'error'); else { const respawned = advanceTime(n); write(`TIME: Advanced ${n}; respawned: ${respawned.join(', ') || 'none'}.`); render(); } } else if (command === 'respawns') { const active = Object.values(RESOURCE_NODES).filter(node => state.resourceRespawns[node.id] !== undefined).map(node => `${node.name}: ${state.resourceRespawns[node.id] - state.worldTime} remaining`); write(active.join('\n') || 'No active respawn timers.'); render(); } else if (command === 'save') { const saved = saveGame(state); write(`SAVED: ${saved.savedAt}.`); } else if (command === 'load') { const result = readSave(); if (!result.success) write(`${result.code}: ${result.message}`, 'error'); else { applyLoadedState(state, result.state); write(`LOADED: ${result.savedAt}.`); render(); } } else if (command === 'clearsave') { clearSave(); write('SAVECLEARED: Local save deleted.'); } else if (command === 'reset') { location.reload(); } else if (command === 'clear') elements.consoleOutput?.replaceChildren(); else write(`Unknown command: ${command}. Type help.`, 'error'); }
-const directions = { ArrowUp: [0, -1], w: [0, -1], ArrowDown: [0, 1], s: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], ArrowRight: [1, 0], d: [1, 0] };
-document.addEventListener('keydown', event => { const direction = directions[event.key]; if (direction && event.target !== elements.consoleInput) { event.preventDefault(); move(...direction); } });
-elements.resetButton?.addEventListener('click', () => { location.reload(); });
-elements.consoleForm?.addEventListener('submit', event => { event.preventDefault(); executeCommand(elements.consoleInput.value); elements.consoleInput.value = ''; elements.consoleInput.focus(); });
+const state = createInitialState();
+
+const elements = {
+  board: document.querySelector('#board'),
+  status: document.querySelector('#status'),
+  log: document.querySelector('#log'),
+  commandInput: document.querySelector('#command-input'),
+  commandForm: document.querySelector('#command-form'),
+  saveButton: document.querySelector('#save-button'),
+  loadButton: document.querySelector('#load-button'),
+  resetButton: document.querySelector('#reset-button'),
+};
+
+function render() {
+  const visible = getVisibleState(state);
+  renderBoard(elements.board, visible);
+  renderStatus(elements.status, visible);
+  renderLog(elements.log, visible);
+}
+
+function write(message, tone = 'normal') {
+  const line = document.createElement('div');
+  line.className = `log-line ${tone}`;
+  line.textContent = message;
+  elements.log?.appendChild(line);
+  elements.log?.scrollTo({ top: elements.log.scrollHeight, behavior: 'smooth' });
+}
+
+function handleCommand(raw) {
+  const command = raw.trim().toLowerCase();
+
+  if (!command) return;
+
+  if (command === 'save') {
+    const payload = saveGame(state);
+    write(`SAVED: Game saved at ${payload.savedAt}.`);
+  } else if (command === 'load') {
+    const result = readSave();
+    if (result.success) {
+      applyLoadedState(state, result.state);
+      write(`LOADED: Save from ${result.savedAt}.`);
+      render();
+    } else {
+      write(`${result.code}: ${result.message}`, 'error');
+    }
+  } else if (command === 'clearsave') {
+    clearSave();
+    write('SAVECLEARED: Local save deleted.');
+  } else if (command === 'clear') {
+    elements.log?.replaceChildren();
+  } else if (command === 'reset') {
+    location.reload();
+  } else {
+    const result = executeCommand(state, command);
+    write(result.message, result.success ? 'success' : 'error');
+    render();
+  }
+}
+
+elements.commandForm?.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const input = elements.commandInput;
+  handleCommand(input?.value ?? '');
+  if (input) input.value = '';
+});
+
+elements.saveButton?.addEventListener('click', () => {
+  const payload = saveGame(state);
+  write(`SAVED: Game saved at ${payload.savedAt}.`);
+});
+
+elements.loadButton?.addEventListener('click', () => {
+  const result = readSave();
+  if (result.success) {
+    applyLoadedState(state, result.state);
+    write(`LOADED: Save from ${result.savedAt}.`);
+    render();
+  } else {
+    write(`${result.code}: ${result.message}`, 'error');
+  }
+});
+
+elements.resetButton?.addEventListener('click', () => {
+  location.reload();
+});
+
 render();
-write('Foundation loaded. Type help for commands.');
-window.gridRpg = { state, rules, crafting, executeCommand, render };
