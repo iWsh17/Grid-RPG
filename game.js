@@ -1,0 +1,57 @@
+import { createEventBus, createGameState, getInventoryAmount, getResourceQuantity, getSkill } from './core.js';
+import { BIOMES, GRIDS, ITEMS, RECIPES, RESOURCE_NODES, RESOURCE_NODES_BY_POSITION, SKILLS, SKILL_NODES } from './content.js';
+import { createBiomeRegistry } from './biomes.js';
+import { createRules } from './systems.js';
+import { createCraftingRules } from './crafting.js';
+import { SAVE_KEY, applyLoadedState, clearSave, readSave, saveGame } from './persistence.js';
+
+// Select which grid to load - change this to switch grids
+let currentGridId = 'meadow_01';
+let currentGrid = GRIDS[currentGridId];
+
+// Create resource lookup map from grid resources
+let resourceNodesByPosition = new Map(Object.values(currentGrid.resources).map(node => [`${node.x},${node.y}`, node]));
+
+const elements = { grid: document.querySelector('#grid'), inspector: document.querySelector('#state-inspector'), consoleOutput: document.querySelector('#console-output'), consoleForm: document.querySelector('#console-form'), consoleInput: document.querySelector('#console-input'), resetButton: document.querySelector('#reset-button'), statusBadge: document.querySelector('#status-badge') };
+const eventBus = createEventBus(); const state = createGameState({ x: 1, y: 1 }, currentGrid.resources, SKILLS); let biomes = createBiomeRegistry(BIOMES, currentGrid.biomeMap); let rules = createRules({ config: { gridWidth: currentGrid.width, gridHeight: currentGrid.height, blockedCells: currentGrid.blockedCells, startPosition: { x: 1, y: 1 } }, resourceNodesByPosition, eventBus, skills: SKILLS, skillNodes: SKILL_NODES, biomeRegistry: biomes }); const crafting = createCraftingRules({ recipes: RECIPES, eventBus });
+function setStatus(message) { elements.statusBadge.textContent = message; }
+function inventoryText() { const entries = Object.entries(state.inventory).filter(([, amount]) => amount > 0).map(([id, amount]) => `${ITEMS[id]?.name ?? id}: ${amount}`); return entries.length ? entries.join(', ') : 'Empty'; }
+function recipeText() { return Object.values(RECIPES).map(recipe => { const inputs = Object.entries(recipe.inputs).map(([id, amount]) => `${amount} ${ITEMS[id]?.name ?? id}`).join(', '); const materials = Object.entries(recipe.inputs).every(([id, amount]) => getInventoryAmount(state, id) >= amount); const requirement = rules.evaluateRequirement(state, recipe.requirements); const status = !requirement.met ? requirement.reasons.join(' ') : materials ? 'Available' : 'Missing materials'; return `${recipe.id}\nRequires: ${inputs}\nProduces: ${recipe.output.amount} ${ITEMS[recipe.output.itemId]?.name ?? recipe.output.itemId}\nStatus: ${status}`; }).join('\n\n'); }
+function render() { elements.grid.replaceChildren(); for (let y = 0; y < currentGrid.height; y += 1) for (let x = 0; x < currentGrid.width; x += 1) { const cell = document.createElement('div'); const node = resourceNodesByPosition.get(`${x},${y}`); cell.className = `cell ${biomes.getBiomeAt(x, y).visualClass}`; cell.setAttribute('aria-label', `Cell ${x}, ${y}`); if (rules.isBlocked(x, y)) cell.classList.add('blocked'); if (node && getResourceQuantity(state, node.id) > 0) { cell.classList.add('resource'); cell.title = `${node.name} (${getResourceQuantity(state, node.id)} remaining)`; } if (state.player.x === x && state.player.y === y) cell.classList.add('player'); elements.grid.append(cell); } elements.grid.style.gridTemplateColumns = `repeat(${currentGrid.width}, 1fr)`; elements.grid.style.gridTemplateRows = `repeat(${currentGrid.height}, 1fr)`; const remaining = Object.values(currentGrid.resources).reduce((n, node) => n + getResourceQuantity(state, node.id), 0); const maximum = Object.values(currentGrid.resources).reduce((n, node) => n + node.maxQuantity, 0); const skill = getSkill(state, 'foraging'); const biome = biomes.getBiomeAt(state.player.x, state.player.y); elements.inspector.innerHTML = `<dt>Position</dt><dd>${state.player.x}, ${state.player.y}</dd><dt>Biome</dt><dd>${biome.name}</dd><dt>Foraging</dt><dd>Level ${skill.level}; ${skill.xp} XP</dd><dt>Inventory</dt><dd>${inventoryText()}</dd><dt>Resources</dt><dd>${remaining}/${maximum}</dd>`; }
+const write = (message, type = 'system') => { if (!elements.consoleOutput) return; const line = document.createElement('div'); line.className = `console-line ${type}`; line.textContent = message; elements.consoleOutput.append(line); elements.consoleOutput.scrollTop = elements.consoleOutput.scrollHeight; };
+function show(result) { setStatus(result.success ? 'Ready' : 'Failed'); write(`${result.code ?? (result.success ? 'OK' : 'ERROR')}: ${result.message}`, result.success ? 'system' : 'error'); render(); }
+function move(dx, dy) { 
+  const result = rules.move(state, dx, dy);
+  if (result.success) {
+    const doorway = currentGrid.doorways?.find(d => d.x === state.player.x && d.y === state.player.y);
+    if (doorway) {
+      currentGridId = doorway.targetGrid;
+      currentGrid = GRIDS[currentGridId];
+      state.player.x = doorway.targetX;
+      state.player.y = doorway.targetY;
+      resourceNodesByPosition = new Map(Object.values(currentGrid.resources).map(node => [`${node.x},${node.y}`, node]));
+      biomes = createBiomeRegistry(BIOMES, currentGrid.biomeMap);
+      rules = createRules({ config: { gridWidth: currentGrid.width, gridHeight: currentGrid.height, blockedCells: currentGrid.blockedCells, startPosition: { x: 1, y: 1 } }, resourceNodesByPosition, eventBus, skills: SKILLS, skillNodes: SKILL_NODES, biomeRegistry: biomes });
+      // Initialize resourceRespawns for new grid resources
+      for (const node of Object.values(currentGrid.resources)) {
+        if (state.resourceRespawns[node.id] === undefined) {
+          state.resourceRespawns[node.id] = 0;
+        }
+      }
+      rules.refillResources(state, currentGrid.resources);
+      render();
+    }
+  }
+  show(result);
+}
+function gather() { show(rules.gather(state)); }
+function teleport(x, y) { show(rules.teleport(state, x, y)); }
+function inspectCell(x, y) { if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= currentGrid.width || y >= currentGrid.height) return write('ERROR: Usage: inspectcell <x> <y>', 'error'); write(JSON.stringify({ x, y, biome: biomes.getBiomeAt(x, y), resource: resourceNodesByPosition.get(`${x},${y}`) ?? null }, null, 2)); }
+function executeCommand(raw) { const [command, ...args] = raw.trim().toLowerCase().split(/\s+/); if (!command) return; if (command === 'help') write('Commands: help, state, actions, recipes, biome, inspectcell x y, validatebiomes, save, load, clearsave, craft recipeId, teleport x y, gather, refill, time, advance n, respawns, tests, reset, clear.'); else if (command === 'state') write(JSON.stringify(state, null, 2)); else if (command === 'actions') write(JSON.stringify(state.actionLog, null, 2)); else if (command === 'recipes') write(recipeText()); else if (command === 'biome') write(JSON.stringify(biomes.getBiomeAt(state.player.x, state.player.y), null, 2)); else if (command === 'inspectcell') inspectCell(Number(args[0]), Number(args[1])); else if (command === 'validatebiomes') { const result = biomes.validateResourceNodes(currentGrid.resources); write(result.valid ? 'BIOMESVALID: All resource biome placements are valid.' : `BIOMESINVALID: ${result.errors.join(' ')}`, result.valid ? 'system' : 'error'); } else if (command === 'tests') write('Run the existing test suite from the current stable build.'); else if (command === 'gather') gather(); else if (command === 'craft') show(crafting.craft(state, args[0])); else if (command === 'refill') show(rules.refillResources(state, currentGrid.resources)); else if (command === 'teleport') teleport(Number(args[0]), Number(args[1])); else if (command === 'time') { write(`TIME: World time ${state.worldTime}.`); render(); } else if (command === 'advance') { const n = Number(args[0]); if (!Number.isInteger(n) || n < 1) write('ERROR: Usage: advance <positive integer>.', 'error'); else { const respawned = advanceTime(n); write(`TIME: Advanced ${n}; respawned: ${respawned.join(', ') || 'none'}.`); render(); } } else if (command === 'respawns') { const active = Object.values(currentGrid.resources).filter(node => state.resourceRespawns[node.id] !== undefined).map(node => `${node.name}: ${state.resourceRespawns[node.id] - state.worldTime} remaining`); write(active.join('\n') || 'No active respawn timers.'); render(); } else if (command === 'save') { const saved = saveGame(state); write(`SAVED: ${saved.savedAt}.`); } else if (command === 'load') { const result = readSave(); if (!result.success) write(`${result.code}: ${result.message}`, 'error'); else { applyLoadedState(state, result.state); write(`LOADED: ${result.savedAt}.`); render(); } } else if (command === 'clearsave') { clearSave(); write('SAVECLEARED: Local save deleted.'); } else if (command === 'reset') { location.reload(); } else if (command === 'clear') elements.consoleOutput?.replaceChildren(); else write(`Unknown command: ${command}. Type help.`,'error'); }
+const directions = { ArrowUp: [0, -1], w: [0, -1], ArrowDown: [0, 1], s: [0, 1], ArrowLeft: [-1, 0], a: [-1, 0], ArrowRight: [1, 0], d: [1, 0] };
+document.addEventListener('keydown', event => { const direction = directions[event.key]; if (direction && event.target !== elements.consoleInput) { event.preventDefault(); move(...direction); } });
+elements.resetButton?.addEventListener('click', () => { location.reload(); });
+elements.consoleForm?.addEventListener('submit', event => { event.preventDefault(); executeCommand(elements.consoleInput.value); elements.consoleInput.value = ''; elements.consoleInput.focus(); });
+render();
+write('Foundation loaded. Type help for commands.');
+window.gridRpg = { state, rules, crafting, executeCommand, render };
