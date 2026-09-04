@@ -8,6 +8,7 @@
  *   <script type="module" src="js/main.js"></script>
  */
 
+
 import EventBus from './core/EventBus.js';
 import DataLoader from './core/DataLoader.js';
 import GameState from './core/GameState.js';
@@ -15,6 +16,7 @@ import SkillManager from './core/SkillManager.js';
 import InventorySystem from './systems/InventorySystem.js';
 import HarvestingSystem from './systems/HarvestingSystem.js';
 import CraftingSystem from './systems/CraftingSystem.js';
+import SkillsPanel from './ui/SkillsPanel.js';  // ← ADD THIS
 
 // Make available globally for non-module scripts
 window.EventBus = EventBus;
@@ -52,7 +54,9 @@ async function initialize() {
     InventorySystem.initialize(data.resources);
     HarvestingSystem.initialize(data.resourceNodes);
     CraftingSystem.initialize(data.recipes);
-
+    // 4. Initialize UI panels
+console.log('[Main] Initializing UI...');
+SkillsPanel.initialize(document.getElementById('skills-container'));
     // 4. Set up event listeners
     console.log('[Main] Setting up event listeners...');
     setupEventListeners();

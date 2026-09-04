@@ -26,6 +26,16 @@
         <p class="help-text">Move with W A S D or the arrow keys. Blue is the player. Dark cells are blocked. Green cells are forest.</p>
       </section>
       <aside class="side-column">
+         <section class="panel skills-panel">
+    <div class="panel-heading">
+      <div>
+        <p class="eyebrow">Skills</p>
+        <h2>Character Progress</h2>
+      </div>
+      <button id="skills-toggle" type="button">▼</button>
+    </div>
+    <div id="skills-container"></div>
+  </section>
         <section class="panel"><p class="eyebrow">Player state</p><h2>Inspector</h2><dl id="state-inspector" class="state-list"></dl></section>
         <section class="panel console-panel"><p class="eyebrow">Developer tools</p><h2>Console</h2><div id="console-output" class="console-output" aria-live="polite"></div><form id="console-form" class="console-form"><label for="console-input">Command</label><div class="console-input-row"><input id="console-input" autocomplete="off" placeholder="help" spellcheck="false"><button class="button" type="submit">Run</button></div></form><p class="help-text">Try: <code>biome</code>, <code>inspectcell 10 7</code>, <code>recipes</code>, or <code>tests</code>.</p></section>
       </aside>
