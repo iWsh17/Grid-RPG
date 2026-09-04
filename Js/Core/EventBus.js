@@ -1,68 +1,104 @@
 /**
  * EventBus - Central event system for decoupled communication
- * 
- * Usage:
- *   // Subscribe to an event
- *   EventBus.on('resource.gathered', (data) => { ... });
- *   
- *   // Emit an event
- *   EventBus.emit('resource.gathered', { nodeId: 'berry_bush', items: [...] });
- *   
- *   // Unsubscribe
- *   EventBus.off('resource.gathered', callback);
+ * Production-ready with validation, debug mode, and clean API
  */
 
 const EventBus = {
-  // Internal event storage
   _events: {},
+  _debug: false,
+
+  /**
+   * Enable/disable debug logging
+   * @param {boolean} enabled 
+   */
+  setDebug(enabled) {
+    this._debug = enabled;
+  },
 
   /**
    * Subscribe to an event
    * @param {string} event - Event name (e.g., 'resource.gathered')
-   * @param {function} callback - Function to call when event fires
+   * @param {Function} callback - Function to call when event fires
+   * @returns {Function} Unsubscribe function
    */
   on(event, callback) {
-    if (!this._events[event]) {
-      this._events[event] = [];
+    if (typeof event !== 'string') {
+      throw new TypeError(`EventBus.on: event must be a string, got ${typeof event}`);
     }
-    this._events[event].push(callback);
-    
-    // Debug logging (remove in production if too verbose)
-    console.log(`[EventBus] Subscribed to "${event}"`);
+    if (typeof callback !== 'function') {
+      throw new TypeError(`EventBus.on: callback must be a function, got ${typeof callback}`);
+    }
+
+    if (!this._events[event]) {
+      this._events[event] = new Set();
+    }
+    this._events[event].add(callback);
+
+    if (this._debug) {
+      console.log(`[EventBus] Subscribed to "${event}" (${this._events[event].size} listeners)`);
+    }
+
+    // Return unsubscribe function for convenience
+    return () => this.off(event, callback);
   },
 
   /**
    * Emit an event
    * @param {string} event - Event name
-   * @param {any} data - Data to pass to callbacks
+   * @param {any} [data] - Data to pass to callbacks
    */
   emit(event, data = {}) {
+    if (typeof event !== 'string') {
+      throw new TypeError(`EventBus.emit: event must be a string, got ${typeof event}`);
+    }
+
     const callbacks = this._events[event];
     
-    if (callbacks) {
-      console.log(`[EventBus] Emitting "${event}"`, data);
-      callbacks.forEach(callback => {
-        try {
-          callback(data);
-        } catch (error) {
-          console.error(`[EventBus] Error in "${event}" callback:`, error);
-        }
-      });
-    } else {
-      console.warn(`[EventBus] No listeners for "${event}"`);
+    if (!callbacks) {
+      if (this._debug) {
+        console.warn(`[EventBus] No listeners for "${event}"`);
+      }
+      return;
     }
+
+    if (this._debug) {
+      console.log(`[EventBus] Emitting "${event}"`, data);
+    }
+
+    // Use Set iteration (safe even if callbacks are removed during iteration)
+    callbacks.forEach(callback => {
+      try {
+        callback(data);
+      } catch (error) {
+        console.error(`[EventBus] Error in "${event}" callback:`, error);
+        // Continue calling other callbacks (don't let one break the rest)
+      }
+    });
   },
 
   /**
    * Unsubscribe from an event
    * @param {string} event - Event name
-   * @param {function} callback - The callback to remove
+   * @param {Function} callback - The callback to remove
    */
   off(event, callback) {
-    if (!this._events[event]) return;
-    
-    this._events[event] = this._events[event].filter(cb => cb !== callback);
-    console.log(`[EventBus] Unsubscribed from "${event}"`);
+    if (typeof event !== 'string') {
+      throw new TypeError(`EventBus.off: event must be a string, got ${typeof event}`);
+    }
+
+    const callbacks = this._events[event];
+    if (!callbacks) return;
+
+    callbacks.delete(callback);
+
+    if (this._debug) {
+      console.log(`[EventBus] Unsubscribed from "${event}" (${callbacks.size} listeners)`);
+    }
+
+    // Clean up empty event
+    if (callbacks.size === 0) {
+      delete this._events[event];
+    }
   },
 
   /**
@@ -71,11 +107,18 @@ const EventBus = {
    */
   clear(event) {
     if (event) {
-      this._events[event] = [];
-      console.log(`[EventBus] Cleared listeners for "${event}"`);
+      if (typeof event !== 'string') {
+        throw new TypeError(`EventBus.clear: event must be a string, got ${typeof event}`);
+      }
+      delete this._events[event];
+      if (this._debug) {
+        console.log(`[EventBus] Cleared listeners for "${event}"`);
+      }
     } else {
       this._events = {};
-      console.log(`[EventBus] Cleared all listeners`);
+      if (this._debug) {
+        console.log('[EventBus] Cleared all listeners');
+      }
     }
   },
 
@@ -85,14 +128,17 @@ const EventBus = {
    * @returns {number} Number of listeners
    */
   listenerCount(event) {
-    return this._events[event] ? this._events[event].length : 0;
+    const callbacks = this._events[event];
+    return callbacks ? callbacks.size : 0;
+  },
+
+  /**
+   * Get all event names with listeners
+   * @returns {string[]} Array of event names
+   */
+  getEvents() {
+    return Object.keys(this._events);
   }
 };
 
-// Export for ES modules
 export default EventBus;
-
-// Also make available globally for non-module scripts
-window.EventBus = EventBus;
-
-console.log('[EventBus] Initialized');

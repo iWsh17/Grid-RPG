@@ -1,226 +1,161 @@
 /**
- * GameState - Centralized state management
- * 
- * Usage:
- *   // Initialize
- *   GameState.initialize();
- *   
- *   // Get state
- *   const skills = GameState.get('skills');
- *   const inventory = GameState.get('inventory');
- *   
- *   // Update state
- *   GameState.update('skills.foraging.level', 5);
- *   GameState.update('inventory.berries', 10);
- *   
- *   // Save/Load
- *   GameState.save();
- *   GameState.load();
+ * GameState - Save/Load system with validation and versioning
+ * Pure functions, no internal state
  */
 
-const GameState = {
-  // The actual game state
-  _state: null,
+const SAVE_KEY = 'gridRPG_save_v3';
+const SAVE_VERSION = 3;
 
-  // Save key for localStorage
-  _saveKey: 'gridRPG_save_v2',
+/**
+ * Validate save data structure
+ * @param {any} data - Data to validate
+ * @returns {{valid: boolean, errors: string[]}}
+ */
+function validateSave(data) {
+  const errors = [];
 
+  if (!data || typeof data !== 'object') {
+    errors.push('Save data must be an object');
+    return { valid: false, errors };
+  }
+
+  // Required fields
+  const required = ['player', 'inventory', 'skills'];
+  for (const field of required) {
+    if (!(field in data)) {
+      errors.push(`Missing required field: ${field}`);
+    }
+  }
+
+  // Player validation
+  if (data.player && typeof data.player !== 'object') {
+    errors.push('Player must be an object');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
+/**
+ * Migrate save data between versions
+ * @param {any} data - Save data
+ * @param {number} fromVersion - Source version
+ * @returns {any} Migrated data
+ */
+function migrateSave(data, fromVersion) {
+  // Example migration: v2 -> v3
+  if (fromVersion < 3) {
+    // Add new fields if needed
+    if (!data.capabilities) {
+      data.capabilities = {};
+    }
+  }
+  
+  return data;
+}
+
+export const GameState = {
   /**
-   * Initialize the game state with default values
+   * Save game state to localStorage
+   * @param {Object} state - Game state to save
+   * @returns {boolean} Success status
    */
-  initialize() {
-    console.log('[GameState] Initializing...');
-    
-    this._state = {
-      // Player stats
-      player: {
-        name: 'Player',
-        level: 1,
-        hp: 100,
-        maxHp: 100
-      },
-
-      // Skills: { foraging: { level: 1, xp: 0, totalXp: 0 }, ... }
-      skills: {
-        foraging: { level: 1, xp: 0, totalXp: 0 },
-        mining: { level: 1, xp: 0, totalXp: 0 },
-        crafting: { level: 1, xp: 0, totalXp: 0 }
-      },
-
-      // Inventory: { berries: 10, copper_ore: 5, ... }
-      inventory: {},
-
-      // Unlocked recipes: { berry_potion: true, ... }
-      recipes: {
-        berry_potion: true,
-        fiber_rope: true,
-        stone_wall: true
-      },
-
-      // Achievements/progress tracking
-      achievements: {
-        firstGather: false,
-        firstCraft: false,
-        maxSkill: false,
-        artisansCompass: false
-      },
-
-      // Game progress
-      progress: {
-        zonesDiscovered: [],
-        nodesDiscovered: [],
-        playTime: 0
-      }
-    };
-
-    console.log('[GameState] Initialized with default state');
-    return this._state;
-  },
-
-  /**
-   * Get the entire state or a specific path
-   * @param {string} [path] - Dot-notation path (e.g., 'skills.foraging')
-   * @returns {any} State value or entire state
-   */
-  get(path) {
-    if (!path) {
-      return this._state;
+  save(state) {
+    if (!state || typeof state !== 'object') {
+      console.error('[GameState] Invalid state to save');
+      return false;
     }
 
-    const parts = path.split('.');
-    let value = this._state;
-
-    for (const part of parts) {
-      if (value === undefined || value === null) {
-        console.warn(`[GameState] Path "${path}" not found`);
-        return undefined;
-      }
-      value = value[part];
-    }
-
-    return value;
-  },
-
-  /**
-   * Update a value in the state
-   * @param {string} path - Dot-notation path
-   * @param {any} value - New value
-   * @returns {boolean} Success
-   */
-  update(path, value) {
-    const parts = path.split('.');
-    let current = this._state;
-
-    // Navigate to parent
-    for (let i = 0; i < parts.length - 1; i++) {
-      const part = parts[i];
-      if (!(part in current)) {
-        console.error(`[GameState] Cannot update "${path}": parent path not found`);
-        return false;
-      }
-      current = current[part];
-    }
-
-    // Set the value
-    const lastPart = parts[parts.length - 1];
-    current[lastPart] = value;
-
-    console.log(`[GameState] Updated "${path}" =`, value);
-    return true;
-  },
-
-  /**
-   * Increment a numeric value
-   * @param {string} path - Dot-notation path
-   * @param {number} amount - Amount to add
-   * @returns {number} New value
-   */
-  increment(path, amount = 1) {
-    const current = this.get(path);
-    if (typeof current !== 'number') {
-      console.error(`[GameState] Cannot increment "${path}": not a number`);
-      return current;
-    }
-
-    const newValue = current + amount;
-    this.update(path, newValue);
-    return newValue;
-  },
-
-  /**
-   * Save state to localStorage
-   * @returns {boolean} Success
-   */
-  save() {
     try {
-      const saveData = JSON.stringify(this._state);
-      localStorage.setItem(this._saveKey, saveData);
-      console.log('[GameState] Saved to localStorage');
+      const saveData = {
+        version: SAVE_VERSION,
+        timestamp: Date.now(),
+        state
+      };
+      
+      localStorage.setItem(SAVE_KEY, JSON.stringify(saveData));
+      console.log('[GameState] Saved successfully');
       return true;
     } catch (error) {
-      console.error('[GameState] Failed to save:', error);
+      console.error('[GameState] Save failed:', error);
       return false;
     }
   },
 
   /**
-   * Load state from localStorage
-   * @returns {boolean} Success
+   * Load game state from localStorage
+   * @returns {Object|null} Loaded state or null if no save exists
    */
   load() {
     try {
-      const saveData = localStorage.getItem(this._saveKey);
+      const data = localStorage.getItem(SAVE_KEY);
       
-      if (!saveData) {
-        console.log('[GameState] No save found, using defaults');
-        this.initialize();
-        return false;
+      if (!data) {
+        console.log('[GameState] No save found');
+        return null;
       }
 
-      this._state = JSON.parse(saveData);
-      console.log('[GameState] Loaded from localStorage');
-      return true;
+      const parsed = JSON.parse(data);
+      
+      // Handle old save format (no version)
+      const version = parsed.version || 1;
+      const state = parsed.state || parsed; // Support old format
+
+      // Validate
+      const validation = validateSave(state);
+      if (!validation.valid) {
+        console.error('[GameState] Save validation failed:', validation.errors);
+        console.warn('[GameState] Attempting to load anyway...');
+      }
+
+      // Migrate if needed
+      const migrated = migrateSave(state, version);
+
+      console.log(`[GameState] Loaded save v${version} (timestamp: ${parsed.timestamp || 'unknown'})`);
+      return migrated;
     } catch (error) {
-      console.error('[GameState] Failed to load:', error);
-      this.initialize();
-      return false;
+      console.error('[GameState] Load failed:', error);
+      return null;
     }
   },
 
   /**
-   * Reset state to defaults
+   * Clear saved game
    */
-  reset() {
-    console.log('[GameState] Resetting to defaults...');
-    this.initialize();
+  clear() {
+    localStorage.removeItem(SAVE_KEY);
+    console.log('[GameState] Cleared');
   },
 
   /**
-   * Export state as JSON (for debugging)
-   * @returns {string} JSON string
+   * Check if a save exists
+   * @returns {boolean}
    */
-  export() {
-    return JSON.stringify(this._state, null, 2);
+  hasSave() {
+    return localStorage.getItem(SAVE_KEY) !== null;
   },
 
   /**
-   * Import state from JSON (for debugging)
-   * @param {string} json - JSON string
+   * Get save metadata without loading full state
+   * @returns {Object|null} Save metadata or null
    */
-  import(json) {
+  getMetadata() {
     try {
-      this._state = JSON.parse(json);
-      console.log('[GameState] Imported state');
-    } catch (error) {
-      console.error('[GameState] Failed to import:', error);
+      const data = localStorage.getItem(SAVE_KEY);
+      if (!data) return null;
+
+      const parsed = JSON.parse(data);
+      return {
+        version: parsed.version || 1,
+        timestamp: parsed.timestamp || null,
+        hasState: !!parsed.state
+      };
+    } catch {
+      return null;
     }
   }
 };
 
-// Export for ES modules
 export default GameState;
-
-// Also make available globally for non-module scripts
-window.GameState = GameState;
-
-console.log('[GameState] Initialized');

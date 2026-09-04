@@ -11,7 +11,7 @@
   <main class="app-shell">
     <header class="topbar">
       <div>
-        <p class="eyebrow">Foundation Build 015</p>
+        <p class="eyebrow">Foundation Build 016</p>
         <h1>Grid RPG Prototype</h1>
       </div>
       <button id="reset-button" class="button button-danger" type="button">Reset</button>
@@ -23,25 +23,15 @@
           <span id="status-badge" class="status-badge">Ready</span>
         </div>
         <div id="grid" class="grid" aria-label="Game grid" tabindex="0"></div>
-        <p class="help-text">Move with W A S D or the arrow keys. Blue is the player. Dark cells are blocked. Green cells are forest.</p>
+        <p class="help-text">Move with W A S D or the arrow keys. Blue is the player. Dark cells are blocked.</p>
       </section>
       <aside class="side-column">
-         <section class="panel skills-panel">
-    <div class="panel-heading">
-      <div>
-        <p class="eyebrow">Skills</p>
-        <h2>Character Progress</h2>
-      </div>
-      <button id="skills-toggle" type="button">▼</button>
-    </div>
-    <div id="skills-container"></div>
-  </section>
         <section class="panel"><p class="eyebrow">Player state</p><h2>Inspector</h2><dl id="state-inspector" class="state-list"></dl></section>
-        <section class="panel console-panel"><p class="eyebrow">Developer tools</p><h2>Console</h2><div id="console-output" class="console-output" aria-live="polite"></div><form id="console-form" class="console-form"><label for="console-input">Command</label><div class="console-input-row"><input id="console-input" autocomplete="off" placeholder="help" spellcheck="false"><button class="button" type="submit">Run</button></div></form><p class="help-text">Try: <code>biome</code>, <code>inspectcell 10 7</code>, <code>recipes</code>, or <code>tests</code>.</p></section>
+        <section class="panel console-panel"><p class="eyebrow">Developer tools</p><h2>Console</h2><div id="console-output" class="console-output" aria-live="polite"></div><form id="console-form" class="console-form"><label for="console-input">Command</label><div class="console-input-row"><input id="console-input" autocomplete="off" placeholder="help" spellcheck="false"><button class="button" type="submit">Run</button></div></form><p class="help-text">Try: <code>help</code>, <code>state</code>, <code>teleport x y</code>, or <code>reset</code>.</p></section>
       </aside>
     </section>
   </main>
-   <script type="module" src="js/main.js"></script>
+  <script type="module" src="Js/main.js"></script>
   <script type="module" src="game.js"></script>
 </body>
 </html>
