@@ -1,243 +1,355 @@
-// config.js - Game configuration and content data
+/**
+ * content.js - Static game content (grids, items, tools, recipes)
+ * Data-driven, immutable, no side effects
+ */
 
-export const CONFIG = Object.freeze({
-  gridWidth: 12,
-  gridHeight: 9,
-  startPosition: { x: 1, y: 1 },
-  blockedCells: [
-    [3, 0], [3, 1], [3, 2], [3, 3],
-    [7, 4], [8, 4], [9, 4],
-    [5, 6], [5, 7], [5, 8]
-  ]
-});
-
-export const BIOMES = Object.freeze({
-  meadow: Object.freeze({
-    id: 'meadow',
-    name: 'Greenmeadow',
-    description: 'Open grassland suitable for early gathering.',
-    visualClass: 'biome-meadow',
-    tags: Object.freeze(['open', 'temperate']),
-    gatherXpMultiplier: 1
-  }),
-  forest: Object.freeze({
-    id: 'forest',
-    name: 'Whispering Forest',
-    description: 'Dense woodland where canopy resources and advanced gathering routes begin.',
-    visualClass: 'biome-forest',
-    tags: Object.freeze(['woodland', 'shaded']),
-    gatherXpMultiplier: 2
-  })
-});
-
-export const BIOME_ASSIGNMENTS = Object.freeze({
-  '8,6': 'forest', '9,6': 'forest', '10,6': 'forest', '11,6': 'forest',
-  '8,7': 'forest', '9,7': 'forest', '10,7': 'forest', '11,7': 'forest',
-  '8,8': 'forest', '9,8': 'forest', '10,8': 'forest', '11,8': 'forest'
-});
-
-export const ITEMS = Object.freeze({
-  wood: Object.freeze({ id: 'wood', name: 'Wood' }),
-  wooden_plank: Object.freeze({ id: 'wooden_plank', name: 'Wooden plank' }),
-  wooden_handle: Object.freeze({ id: 'wooden_handle', name: 'Wooden handle' }),
-  canopy_hook: Object.freeze({ id: 'canopy_hook', name: 'Canopy hook' }),
-  forest_resin: Object.freeze({ id: 'forest_resin', name: 'Forest resin' }),
-  resin_glue: Object.freeze({ id: 'resin_glue', name: 'Resin glue' })
-});
-
-export const SKILLS = Object.freeze({
-  foraging: Object.freeze({
-    id: 'foraging',
-    name: 'Foraging',
-    xpPerLevel: 10,
-    maxLevel: 5
-  })
-});
-
-export const SKILL_NODES = Object.freeze({
-  canopy_access: Object.freeze({
-    id: 'canopy_access',
-    name: 'Canopy access',
-    skillId: 'foraging',
-    requiredLevel: 1,
-    grants: Object.freeze({ capability: 'canopy_access' })
-  })
-});
-
-export const RECIPES = Object.freeze({
-  wooden_plank: Object.freeze({
-    id: 'wooden_plank',
-    name: 'Wooden plank',
-    requirements: null,
-    inputs: Object.freeze({ wood: 2 }),
-    output: Object.freeze({ itemId: 'wooden_plank', amount: 1 })
-  }),
-  wooden_handle: Object.freeze({
-    id: 'wooden_handle',
-    name: 'Wooden handle',
-    requirements: null,
-    inputs: Object.freeze({ wood: 1, wooden_plank: 1 }),
-    output: Object.freeze({ itemId: 'wooden_handle', amount: 1 })
-  }),
-  canopy_hook: Object.freeze({
-    id: 'canopy_hook',
-    name: 'Canopy hook',
-    requirements: Object.freeze({
-      all: Object.freeze([
-        Object.freeze({ capability: 'canopy_access' })
-      ])
-    }),
-    inputs: Object.freeze({ wood: 1, wooden_plank: 1 }),
-    output: Object.freeze({ itemId: 'canopy_hook', amount: 1 })
-  }),
-  resin_glue: Object.freeze({
-    id: 'resin_glue',
-    name: 'Resin glue',
-    requirements: null,
-    inputs: Object.freeze({ forest_resin: 1, wooden_plank: 1 }),
-    output: Object.freeze({ itemId: 'resin_glue', amount: 1 })
-  })
-});
-
-export const RESOURCE_NODES = Object.freeze({
-  starter_tree: Object.freeze({
-    id: 'starter_tree',
-    name: 'Starter tree',
-    x: 2, y: 1,
-    biomeId: 'meadow',
-    maxQuantity: 3,
-    respawnTime: 5,
-    requirements: null,
-    skillId: 'foraging',
-    xp: 5,
-    yields: Object.freeze({ itemId: 'wood', amount: 1 })
-  }),
-  second_tree: Object.freeze({
-    id: 'second_tree',
-    name: 'Second tree',
-    x: 6, y: 2,
-    biomeId: 'meadow',
-    maxQuantity: 3,
-    respawnTime: 5,
-    requirements: Object.freeze({
-      all: Object.freeze([
-        Object.freeze({ inventory: Object.freeze({ itemId: 'wood', min: 1 }) })
-      ])
-    }),
-    skillId: 'foraging',
-    xp: 5,
-    yields: Object.freeze({ itemId: 'wood', amount: 1 })
-  }),
-  high_tree: Object.freeze({
-    id: 'high_tree',
-    name: 'High-canopy tree',
-    x: 10, y: 7,
-    biomeId: 'forest',
-    maxQuantity: 3,
-    respawnTime: 8,
-    requirements: Object.freeze({
-      all: Object.freeze([
-        Object.freeze({ capability: 'canopy_access' })
-      ])
-    }),
-    skillId: 'foraging',
-    xp: 5,
-    yields: Object.freeze({ itemId: 'wood', amount: 1 })
-  }),
-  canopy_cache: Object.freeze({
-    id: 'canopy_cache',
-    name: 'Canopy cache',
-    x: 9, y: 7,
-    biomeId: 'forest',
-    maxQuantity: 1,
-    respawnTime: 12,
-    requirements: Object.freeze({
-      all: Object.freeze([
-        Object.freeze({ inventory: Object.freeze({ itemId: 'canopy_hook', min: 1 }) })
-      ])
-    }),
-    skillId: 'foraging',
-    xp: 10,
-    yields: Object.freeze({ itemId: 'wooden_handle', amount: 1 })
-  }),
-  resin_node: Object.freeze({
-    id: 'resin_node',
-    name: 'Resin node',
-    x: 8, y: 8,
-    biomeId: 'forest',
-    maxQuantity: 2,
-    respawnTime: 8,
-    requirements: Object.freeze({
-      all: Object.freeze([
-        Object.freeze({ capability: 'canopy_access' })
-      ])
-    }),
-    skillId: 'foraging',
-    xp: 10,
-    yields: Object.freeze({ itemId: 'forest_resin', amount: 1 })
-  }),
-  // NEW: Storage Chest
-  storage_chest_1: Object.freeze({
-    id: 'storage_chest_1',
-    name: 'Storage Chest',
-    x: 4, y: 4,
-    biomeId: 'meadow',
-    maxQuantity: 1,
-    respawnTime: 0,
-    requirements: null,
-    skillId: null,
-    xp: 0,
-    type: 'storage',
-    storageConfig: 'storage_chest',
-    yields: Object.freeze({ itemId: null, amount: 0 })
-  })
-});
-
-export const RESOURCE_NODES_BY_POSITION = new Map(
-  Object.values(RESOURCE_NODES).map(node => [`${node.x},${node.y}`, node])
-);
+// ============ Grids ============
 
 export const GRIDS = Object.freeze({
   meadow_01: Object.freeze({
     id: 'meadow_01',
-    width: CONFIG.gridWidth,
-    height: CONFIG.gridHeight,
-    defaultBiome: 'meadow',
-    blockedCells: CONFIG.blockedCells,
-    doorways: [
-      { x: 11, y: 4, targetGrid: 'new_zone_01', targetX: 0, targetY: 4 }
-    ],
-    biomeMap: BIOME_ASSIGNMENTS,
-    resources: RESOURCE_NODES
-  }),
-  new_zone_01: Object.freeze({
-    id: 'new_zone_01',
-    width: 12,
-    height: 9,
-    defaultBiome: 'forest',
-    blockedCells: [[0, 0], [0, 1], [0, 2]],
-    biomeMap: { '5,5': 'meadow', '6,5': 'meadow' },
-    resources: {
-      zone2_tree: Object.freeze({
-        id: 'zone2_tree',
-        name: 'Zone 2 Tree',
-        x: 5, y: 5,
-        biomeId: 'meadow',
-        maxQuantity: 3,
-        respawnTime: 5,
-        requirements: null,
-        skillId: 'foraging',
-        xp: 5,
-        yields: Object.freeze({ itemId: 'wood', amount: 1 })
-      })
-    },
-    doorways: [
-      { x: 0, y: 4, targetGrid: 'meadow_01', targetX: 11, targetY: 4 }
-    ]
+    name: 'Lakeside Forest',
+    width: 10,
+    height: 10,
+    biome: 'lakeside_forest',
+    blockedCells: Object.freeze([
+      [3, 3], [3, 4], [4, 3],
+      [7, 7], [7, 8], [8, 7]
+    ])
   })
 });
 
-export const WORLD = Object.freeze({
-  grids: ['meadow_01', 'new_zone_01'],
-  connections: {}
+// ============ Items ============
+
+export const ITEMS = Object.freeze({
+  // Resources
+  wood: Object.freeze({
+    id: 'wood',
+    name: 'Wood',
+    icon: '🪵',
+    stackSize: 999,
+    category: 'material',
+    tier: 1
+  }),
+  stone: Object.freeze({
+    id: 'stone',
+    name: 'Stone',
+    icon: '🪨',
+    stackSize: 999,
+    category: 'material',
+    tier: 1
+  }),
+  plant_fibers: Object.freeze({
+    id: 'plant_fibers',
+    name: 'Plant Fibers',
+    icon: '🌾',
+    stackSize: 999,
+    category: 'material',
+    tier: 1
+  }),
+  minnow: Object.freeze({
+    id: 'minnow',
+    name: 'Minnow',
+    icon: '🐟',
+    stackSize: 999,
+    category: 'material',
+    tier: 1
+  }),
+  copper_ore: Object.freeze({
+    id: 'copper_ore',
+    name: 'Copper Ore',
+    icon: '🟠',
+    stackSize: 999,
+    category: 'material',
+    tier: 1
+  }),
+  iron_ore: Object.freeze({
+    id: 'iron_ore',
+    name: 'Iron Ore',
+    icon: '⬜',
+    stackSize: 999,
+    category: 'material',
+    tier: 2
+  }),
+  // Tools
+  fishing_rod_basic: Object.freeze({
+    id: 'fishing_rod_basic',
+    name: 'Fishing Rod',
+    icon: '🎣',
+    stackSize: 1,
+    category: 'tool',
+    tier: 1,
+    durability: 50,
+    gatherSpeedMultiplier: 1.0
+  }),
+  pickaxe_basic: Object.freeze({
+    id: 'pickaxe_basic',
+    name: 'Pickaxe',
+    icon: '⛏️',
+    stackSize: 1,
+    category: 'tool',
+    tier: 1,
+    durability: 50,
+    gatherSpeedMultiplier: 1.0
+  }),
+  axe_basic: Object.freeze({
+    id: 'axe_basic',
+    name: 'Axe',
+    icon: '🪓',
+    stackSize: 1,
+    category: 'tool',
+    tier: 1,
+    durability: 50,
+    gatherSpeedMultiplier: 1.0
+  }),
+  fishing_rod_advanced: Object.freeze({
+    id: 'fishing_rod_advanced',
+    name: 'Advanced Fishing Rod',
+    icon: '🎣✨',
+    stackSize: 1,
+    category: 'tool',
+    tier: 2,
+    durability: 100,
+    gatherSpeedMultiplier: 1.5
+  }),
+  pickaxe_advanced: Object.freeze({
+    id: 'pickaxe_advanced',
+    name: 'Advanced Pickaxe',
+    icon: '⛏️✨',
+    stackSize: 1,
+    category: 'tool',
+    tier: 2,
+    durability: 100,
+    gatherSpeedMultiplier: 1.5
+  }),
+  axe_advanced: Object.freeze({
+    id: 'axe_advanced',
+    name: 'Advanced Axe',
+    icon: '🪓✨',
+    stackSize: 1,
+    category: 'tool',
+    tier: 2,
+    durability: 100,
+    gatherSpeedMultiplier: 1.5
+  })
 });
+
+// ============ Tools ============
+
+export const TOOLS = Object.freeze([
+  {
+    id: 'fishing_rod_basic',
+    name: 'Fishing Rod',
+    icon: '🎣',
+    category: 'tool',
+    tier: 1,
+    durability: 50,
+    gatherSpeedMultiplier: 1.0,
+    unlocksNodes: ['shoreline', 'reed_bed'],
+    craftingRecipe: {
+      ingredients: {
+        wood: 3,
+        plant_fibers: 2
+      },
+      craftTime: 1000
+    }
+  },
+  {
+    id: 'pickaxe_basic',
+    name: 'Pickaxe',
+    icon: '⛏️',
+    category: 'tool',
+    tier: 1,
+    durability: 50,
+    gatherSpeedMultiplier: 1.0,
+    unlocksNodes: ['surface_rock', 'copper_vein'],
+    craftingRecipe: {
+      ingredients: {
+        wood: 2,
+        stone: 3
+      },
+      craftTime: 1000
+    }
+  },
+  {
+    id: 'axe_basic',
+    name: 'Axe',
+    icon: '🪓',
+    category: 'tool',
+    tier: 1,
+    durability: 50,
+    gatherSpeedMultiplier: 1.0,
+    unlocksNodes: ['sapling', 'pine_tree'],
+    craftingRecipe: {
+      ingredients: {
+        wood: 3,
+        stone: 2
+      },
+      craftTime: 1000
+    }
+  }
+]);
+
+// ============ Resource Nodes ============
+
+export const RESOURCE_NODES = Object.freeze([
+  // Fishing Nodes
+  {
+    id: 'shoreline',
+    name: 'Shoreline',
+    icon: '🌊',
+    x: 5,
+    y: 8,
+    type: 'fishing',
+    skill: 'fishing',
+    minLevel: 0,
+    maxQuantity: 10,
+    respawnTime: 10000,
+    requiredTool: 'fishing_rod_basic',
+    gatherTime: 2000,
+    lootTable: [
+      { resourceId: 'minnow', chance: 0.7, amountMin: 1, amountMax: 2 }
+    ],
+    xpReward: 10
+  },
+  {
+    id: 'reed_bed',
+    name: 'Reed Bed',
+    icon: '🌾',
+    x: 7,
+    y: 8,
+    type: 'fishing',
+    skill: 'fishing',
+    minLevel: 3,
+    maxQuantity: 8,
+    respawnTime: 20000,
+    requiredTool: 'fishing_rod_basic',
+    gatherTime: 3000,
+    lootTable: [
+      { resourceId: 'minnow', chance: 0.6, amountMin: 2, amountMax: 3 }
+    ],
+    xpReward: 15
+  },
+  // Mining Nodes
+  {
+    id: 'surface_rock',
+    name: 'Surface Rock',
+    icon: '🪨',
+    x: 2,
+    y: 3,
+    type: 'mining',
+    skill: 'mining',
+    minLevel: 0,
+    maxQuantity: 10,
+    respawnTime: 15000,
+    requiredTool: 'pickaxe_basic',
+    gatherTime: 2000,
+    lootTable: [
+      { resourceId: 'stone', chance: 0.8, amountMin: 2, amountMax: 4 }
+    ],
+    xpReward: 10
+  },
+  {
+    id: 'copper_vein',
+    name: 'Copper Vein',
+    icon: '🟠',
+    x: 3,
+    y: 3,
+    type: 'mining',
+    skill: 'mining',
+    minLevel: 3,
+    maxQuantity: 8,
+    respawnTime: 25000,
+    requiredTool: 'pickaxe_basic',
+    gatherTime: 3000,
+    lootTable: [
+      { resourceId: 'copper_ore', chance: 0.7, amountMin: 2, amountMax: 3 },
+      { resourceId: 'stone', chance: 0.3, amountMin: 1, amountMax: 2 }
+    ],
+    xpReward: 15
+  },
+  // Woodcutting Nodes
+  {
+    id: 'sapling',
+    name: 'Sapling',
+    icon: '🌱',
+    x: 8,
+    y: 2,
+    type: 'woodcutting',
+    skill: 'woodcutting',
+    minLevel: 0,
+    maxQuantity: 10,
+    respawnTime: 10000,
+    requiredTool: 'axe_basic',
+    gatherTime: 2000,
+    lootTable: [
+      { resourceId: 'wood', chance: 0.6, amountMin: 1, amountMax: 2 },
+      { resourceId: 'plant_fibers', chance: 0.4, amountMin: 1, amountMax: 2 }
+    ],
+    xpReward: 10
+  },
+  {
+    id: 'pine_tree',
+    name: 'Pine Tree',
+    icon: '🌲',
+    x: 8,
+    y: 3,
+    type: 'woodcutting',
+    skill: 'woodcutting',
+    minLevel: 3,
+    maxQuantity: 8,
+    respawnTime: 20000,
+    requiredTool: 'axe_basic',
+    gatherTime: 3000,
+    lootTable: [
+      { resourceId: 'wood', chance: 0.7, amountMin: 3, amountMax: 5 }
+    ],
+    xpReward: 15
+  }
+]);
+
+// ============ Recipes ============
+
+export const RECIPES = Object.freeze([
+  {
+    id: 'fishing_rod_basic',
+    name: 'Fishing Rod',
+    category: 'tool',
+    ingredients: {
+      wood: 3,
+      plant_fibers: 2
+    },
+    output: {
+      itemId: 'fishing_rod_basic',
+      amount: 1
+    }
+  },
+  {
+    id: 'pickaxe_basic',
+    name: 'Pickaxe',
+    category: 'tool',
+    ingredients: {
+      wood: 2,
+      stone: 3
+    },
+    output: {
+      itemId: 'pickaxe_basic',
+      amount: 1
+    }
+  },
+  {
+    id: 'axe_basic',
+    name: 'Axe',
+    category: 'tool',
+    ingredients: {
+      wood: 3,
+      stone: 2
+    },
+    output: {
+      itemId: 'axe_basic',
+      amount: 1
+    }
+  }
+]);
+
+console.log('[content.js] Loaded', Object.keys(ITEMS).length, 'items,', TOOLS.length, 'tools,', RESOURCE_NODES.length, 'nodes,', RECIPES.length, 'recipes');
