@@ -353,3 +353,77 @@ Object.entries(GRIDS).forEach(([id, grid]) => {
 });
 
 console.log(`[Content] Loaded: ${RESOURCE_NODES.length} nodes, ${Object.keys(ITEMS).length} items, ${Object.keys(GRIDS).length} grids`);
+// ============ Tools (for ToolSystem.js) ============
+
+export const TOOLS = {
+  fishing_rod_basic: {
+    id: 'fishing_rod_basic',
+    name: 'Basic Fishing Rod',
+    icon: '🎣',
+    type: 'tool',
+    toolType: 'fishing_rod',
+    durability: CONFIG.TOOL.DEFAULT_DURABILITY,
+  },
+  pickaxe_basic: {
+    id: 'pickaxe_basic',
+    name: 'Basic Pickaxe',
+    icon: '⛏️',
+    type: 'tool',
+    toolType: 'pickaxe',
+    durability: CONFIG.TOOL.DEFAULT_DURABILITY,
+  },
+  axe_basic: {
+    id: 'axe_basic',
+    name: 'Basic Axe',
+    icon: '🪓',
+    type: 'tool',
+    toolType: 'axe',
+    durability: CONFIG.TOOL.DEFAULT_DURABILITY,
+  },
+  sickle_basic: {
+    id: 'sickle_basic',
+    name: 'Basic Sickle',
+    icon: '🌾',
+    type: 'tool',
+    toolType: 'sickle',
+    durability: CONFIG.TOOL.DEFAULT_DURABILITY,
+  },
+};
+
+// ============ Recipes (for CraftingSystem.js) ============
+
+export const RECIPES = [
+  {
+    id: 'fishing_rod_basic',
+    name: 'Basic Fishing Rod',
+    ingredients: {
+      wood_oak: 3,
+      fiber: 2,
+    },
+  },
+  {
+    id: 'pickaxe_basic',
+    name: 'Basic Pickaxe',
+    ingredients: {
+      wood_oak: 2,
+      stone: 3,
+    },
+  },
+  {
+    id: 'axe_basic',
+    name: 'Basic Axe',
+    ingredients: {
+      wood_oak: 2,
+      stone: 3,
+    },
+  },
+  {
+    id: 'sickle_basic',
+    name: 'Basic Sickle',
+    ingredients: {
+      wood_oak: 2,
+      stone: 2,
+      fiber: 1,
+    },
+  },
+];
