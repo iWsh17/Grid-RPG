@@ -1,355 +1,355 @@
 /**
- * content.js - Static game content (grids, items, tools, recipes)
- * Data-driven, immutable, no side effects
+ * content.js - Game data definitions with validation
+ * 
+ * CHANGES:
+ * 1. Added validation for all data structures
+ * 2. Using CONFIG constants where applicable
+ * 3. Added JSDoc documentation
+ * 4. Added runtime checks
  */
 
-// ============ Grids ============
+import { CONFIG } from './Js/core/config.js';
 
-export const GRIDS = Object.freeze({
-  meadow_01: Object.freeze({
-    id: 'meadow_01',
-    name: 'Lakeside Forest',
-    width: 10,
-    height: 10,
-    biome: 'lakeside_forest',
-    blockedCells: Object.freeze([
-      [3, 3], [3, 4], [4, 3],
-      [7, 7], [7, 8], [8, 7]
-    ])
-  })
-});
+// ============ Validation Functions ============
 
-// ============ Items ============
-
-export const ITEMS = Object.freeze({
-  // Resources
-  wood: Object.freeze({
-    id: 'wood',
-    name: 'Wood',
-    icon: '🪵',
-    stackSize: 999,
-    category: 'material',
-    tier: 1
-  }),
-  stone: Object.freeze({
-    id: 'stone',
-    name: 'Stone',
-    icon: '🪨',
-    stackSize: 999,
-    category: 'material',
-    tier: 1
-  }),
-  plant_fibers: Object.freeze({
-    id: 'plant_fibers',
-    name: 'Plant Fibers',
-    icon: '🌾',
-    stackSize: 999,
-    category: 'material',
-    tier: 1
-  }),
-  minnow: Object.freeze({
-    id: 'minnow',
-    name: 'Minnow',
-    icon: '🐟',
-    stackSize: 999,
-    category: 'material',
-    tier: 1
-  }),
-  copper_ore: Object.freeze({
-    id: 'copper_ore',
-    name: 'Copper Ore',
-    icon: '🟠',
-    stackSize: 999,
-    category: 'material',
-    tier: 1
-  }),
-  iron_ore: Object.freeze({
-    id: 'iron_ore',
-    name: 'Iron Ore',
-    icon: '⬜',
-    stackSize: 999,
-    category: 'material',
-    tier: 2
-  }),
-  // Tools
-  fishing_rod_basic: Object.freeze({
-    id: 'fishing_rod_basic',
-    name: 'Fishing Rod',
-    icon: '🎣',
-    stackSize: 1,
-    category: 'tool',
-    tier: 1,
-    durability: 50,
-    gatherSpeedMultiplier: 1.0
-  }),
-  pickaxe_basic: Object.freeze({
-    id: 'pickaxe_basic',
-    name: 'Pickaxe',
-    icon: '⛏️',
-    stackSize: 1,
-    category: 'tool',
-    tier: 1,
-    durability: 50,
-    gatherSpeedMultiplier: 1.0
-  }),
-  axe_basic: Object.freeze({
-    id: 'axe_basic',
-    name: 'Axe',
-    icon: '🪓',
-    stackSize: 1,
-    category: 'tool',
-    tier: 1,
-    durability: 50,
-    gatherSpeedMultiplier: 1.0
-  }),
-  fishing_rod_advanced: Object.freeze({
-    id: 'fishing_rod_advanced',
-    name: 'Advanced Fishing Rod',
-    icon: '🎣✨',
-    stackSize: 1,
-    category: 'tool',
-    tier: 2,
-    durability: 100,
-    gatherSpeedMultiplier: 1.5
-  }),
-  pickaxe_advanced: Object.freeze({
-    id: 'pickaxe_advanced',
-    name: 'Advanced Pickaxe',
-    icon: '⛏️✨',
-    stackSize: 1,
-    category: 'tool',
-    tier: 2,
-    durability: 100,
-    gatherSpeedMultiplier: 1.5
-  }),
-  axe_advanced: Object.freeze({
-    id: 'axe_advanced',
-    name: 'Advanced Axe',
-    icon: '🪓✨',
-    stackSize: 1,
-    category: 'tool',
-    tier: 2,
-    durability: 100,
-    gatherSpeedMultiplier: 1.5
-  })
-});
-
-// ============ Tools ============
-
-export const TOOLS = Object.freeze([
-  {
-    id: 'fishing_rod_basic',
-    name: 'Fishing Rod',
-    icon: '🎣',
-    category: 'tool',
-    tier: 1,
-    durability: 50,
-    gatherSpeedMultiplier: 1.0,
-    unlocksNodes: ['shoreline', 'reed_bed'],
-    craftingRecipe: {
-      ingredients: {
-        wood: 3,
-        plant_fibers: 2
-      },
-      craftTime: 1000
-    }
-  },
-  {
-    id: 'pickaxe_basic',
-    name: 'Pickaxe',
-    icon: '⛏️',
-    category: 'tool',
-    tier: 1,
-    durability: 50,
-    gatherSpeedMultiplier: 1.0,
-    unlocksNodes: ['surface_rock', 'copper_vein'],
-    craftingRecipe: {
-      ingredients: {
-        wood: 2,
-        stone: 3
-      },
-      craftTime: 1000
-    }
-  },
-  {
-    id: 'axe_basic',
-    name: 'Axe',
-    icon: '🪓',
-    category: 'tool',
-    tier: 1,
-    durability: 50,
-    gatherSpeedMultiplier: 1.0,
-    unlocksNodes: ['sapling', 'pine_tree'],
-    craftingRecipe: {
-      ingredients: {
-        wood: 3,
-        stone: 2
-      },
-      craftTime: 1000
+/**
+ * Validates a resource node definition
+ * @param {Object} node - Node to validate
+ * @returns {boolean} - True if valid
+ */
+function validateResourceNode(node) {
+  const required = ['id', 'name', 'icon', 'skill', 'minLevel', 'gatherTime', 'respawnTime', 'maxQuantity', 'lootTable', 'xpReward'];
+  
+  for (const field of required) {
+    if (!(field in node)) {
+      console.error(`[Content] Resource node missing field: ${field}`, node);
+      return false;
     }
   }
-]);
+  
+  if (typeof node.id !== 'string' || node.id.length > CONFIG.VALIDATION.MAX_ID_LENGTH) {
+    console.error(`[Content] Resource node has invalid id: ${node.id}`);
+    return false;
+  }
+  
+  if (node.gatherTime < CONFIG.GATHER.MIN_TIME_MS || node.gatherTime > CONFIG.GATHER.MAX_TIME_MS) {
+    console.error(`[Content] Resource node ${node.id} has invalid gatherTime: ${node.gatherTime}`);
+    return false;
+  }
+  
+  if (node.respawnTime < CONFIG.RESPAWN.MIN_TIME_MS || node.respawnTime > CONFIG.RESPAWN.MAX_TIME_MS) {
+    console.error(`[Content] Resource node ${node.id} has invalid respawnTime: ${node.respawnTime}`);
+    return false;
+  }
+  
+  if (!Array.isArray(node.lootTable)) {
+    console.error(`[Content] Resource node ${node.id} has invalid lootTable`);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Validates an item definition
+ * @param {Object} item - Item to validate
+ * @returns {boolean} - True if valid
+ */
+function validateItem(item) {
+  const required = ['id', 'name', 'icon', 'type'];
+  
+  for (const field of required) {
+    if (!(field in item)) {
+      console.error(`[Content] Item missing field: ${field}`, item);
+      return false;
+    }
+  }
+  
+  if (typeof item.id !== 'string' || item.id.length > CONFIG.VALIDATION.MAX_ID_LENGTH) {
+    console.error(`[Content] Item has invalid id: ${item.id}`);
+    return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Validates a grid definition
+ * @param {Object} grid - Grid to validate
+ * @returns {boolean} - True if valid
+ */
+function validateGrid(grid) {
+  const required = ['id', 'name', 'width', 'height', 'description'];
+  
+  for (const field of required) {
+    if (!(field in grid)) {
+      console.error(`[Content] Grid missing field: ${field}`, grid);
+      return false;
+    }
+  }
+  
+  if (grid.width < 1 || grid.width > CONFIG.VALIDATION.MAX_COORDINATE) {
+    console.error(`[Content] Grid ${grid.id} has invalid width: ${grid.width}`);
+    return false;
+  }
+  
+  if (grid.height < 1 || grid.height > CONFIG.VALIDATION.MAX_COORDINATE) {
+    console.error(`[Content] Grid ${grid.id} has invalid height: ${grid.height}`);
+    return false;
+  }
+  
+  return true;
+}
 
 // ============ Resource Nodes ============
 
-export const RESOURCE_NODES = Object.freeze([
-  // Fishing Nodes
+export const RESOURCE_NODES = [
   {
     id: 'shoreline',
     name: 'Shoreline',
     icon: '🌊',
-    x: 5,
-    y: 8,
-    type: 'fishing',
     skill: 'fishing',
-    minLevel: 0,
+    minLevel: 1,
+    gatherTime: CONFIG.GATHER.BASE_TIME_MS,
+    respawnTime: CONFIG.RESPAWN.BASE_TIME_MS,
     maxQuantity: 10,
-    respawnTime: 10000,
-    requiredTool: 'fishing_rod_basic',
-    gatherTime: 2000,
     lootTable: [
-      { resourceId: 'minnow', chance: 0.7, amountMin: 1, amountMax: 2 }
+      { resourceId: 'fish_clownfish', amountMin: 1, amountMax: 2, chance: 0.7 },
+      { resourceId: 'fish_tuna', amountMin: 1, amountMax: 1, chance: 0.3 },
     ],
-    xpReward: 10
+    xpReward: 10,
   },
   {
     id: 'reed_bed',
     name: 'Reed Bed',
     icon: '🌾',
-    x: 7,
-    y: 8,
-    type: 'fishing',
-    skill: 'fishing',
-    minLevel: 3,
-    maxQuantity: 8,
-    respawnTime: 20000,
-    requiredTool: 'fishing_rod_basic',
-    gatherTime: 3000,
+    skill: 'foraging',
+    minLevel: 1,
+    gatherTime: CONFIG.GATHER.BASE_TIME_MS,
+    respawnTime: CONFIG.RESPAWN.BASE_TIME_MS,
+    maxQuantity: 15,
     lootTable: [
-      { resourceId: 'minnow', chance: 0.6, amountMin: 2, amountMax: 3 }
+      { resourceId: 'reed', amountMin: 1, amountMax: 3, chance: 0.8 },
+      { resourceId: 'fiber', amountMin: 1, amountMax: 2, chance: 0.4 },
     ],
-    xpReward: 15
+    xpReward: 8,
   },
-  // Mining Nodes
   {
     id: 'surface_rock',
     name: 'Surface Rock',
     icon: '🪨',
-    x: 2,
-    y: 3,
-    type: 'mining',
     skill: 'mining',
-    minLevel: 0,
-    maxQuantity: 10,
-    respawnTime: 15000,
-    requiredTool: 'pickaxe_basic',
-    gatherTime: 2000,
+    minLevel: 1,
+    gatherTime: CONFIG.GATHER.BASE_TIME_MS,
+    respawnTime: CONFIG.RESPAWN.BASE_TIME_MS,
+    maxQuantity: 8,
     lootTable: [
-      { resourceId: 'stone', chance: 0.8, amountMin: 2, amountMax: 4 }
+      { resourceId: 'stone', amountMin: 1, amountMax: 2, chance: 0.9 },
+      { resourceId: 'iron_ore', amountMin: 1, amountMax: 1, chance: 0.2 },
     ],
-    xpReward: 10
+    xpReward: 12,
   },
   {
     id: 'copper_vein',
     name: 'Copper Vein',
     icon: '🟠',
-    x: 3,
-    y: 3,
-    type: 'mining',
     skill: 'mining',
-    minLevel: 3,
-    maxQuantity: 8,
-    respawnTime: 25000,
-    requiredTool: 'pickaxe_basic',
-    gatherTime: 3000,
+    minLevel: 2,
+    gatherTime: CONFIG.GATHER.BASE_TIME_MS * 1.5,
+    respawnTime: CONFIG.RESPAWN.BASE_TIME_MS * 1.5,
+    maxQuantity: 6,
     lootTable: [
-      { resourceId: 'copper_ore', chance: 0.7, amountMin: 2, amountMax: 3 },
-      { resourceId: 'stone', chance: 0.3, amountMin: 1, amountMax: 2 }
+      { resourceId: 'copper_ore', amountMin: 1, amountMax: 2, chance: 0.8 },
+      { resourceId: 'stone', amountMin: 1, amountMax: 1, chance: 0.5 },
     ],
-    xpReward: 15
+    xpReward: 18,
   },
-  // Woodcutting Nodes
   {
     id: 'sapling',
     name: 'Sapling',
     icon: '🌱',
-    x: 8,
-    y: 2,
-    type: 'woodcutting',
     skill: 'woodcutting',
-    minLevel: 0,
-    maxQuantity: 10,
-    respawnTime: 10000,
-    requiredTool: 'axe_basic',
-    gatherTime: 2000,
+    minLevel: 1,
+    gatherTime: CONFIG.GATHER.BASE_TIME_MS,
+    respawnTime: CONFIG.RESPAWN.BASE_TIME_MS,
+    maxQuantity: 12,
     lootTable: [
-      { resourceId: 'wood', chance: 0.6, amountMin: 1, amountMax: 2 },
-      { resourceId: 'plant_fibers', chance: 0.4, amountMin: 1, amountMax: 2 }
+      { resourceId: 'wood_oak', amountMin: 1, amountMax: 3, chance: 0.8 },
+      { resourceId: 'fiber', amountMin: 1, amountMax: 2, chance: 0.3 },
     ],
-    xpReward: 10
+    xpReward: 10,
   },
   {
     id: 'pine_tree',
     name: 'Pine Tree',
     icon: '🌲',
-    x: 8,
-    y: 3,
-    type: 'woodcutting',
     skill: 'woodcutting',
-    minLevel: 3,
+    minLevel: 2,
+    gatherTime: CONFIG.GATHER.BASE_TIME_MS * 1.5,
+    respawnTime: CONFIG.RESPAWN.BASE_TIME_MS * 1.5,
     maxQuantity: 8,
-    respawnTime: 20000,
-    requiredTool: 'axe_basic',
-    gatherTime: 3000,
     lootTable: [
-      { resourceId: 'wood', chance: 0.7, amountMin: 3, amountMax: 5 }
+      { resourceId: 'wood_pine', amountMin: 1, amountMax: 3, chance: 0.8 },
+      { resourceId: 'resin', amountMin: 1, amountMax: 1, chance: 0.3 },
     ],
-    xpReward: 15
+    xpReward: 15,
+  },
+].filter(node => {
+  const isValid = validateResourceNode(node);
+  if (!isValid) {
+    console.error(`[Content] Removing invalid node: ${node?.id || 'unknown'}`);
   }
-]);
+  return isValid;
+});
 
-// ============ Recipes ============
+// ============ Items ============
 
-export const RECIPES = Object.freeze([
-  {
+export const ITEMS = {
+  // Tools
+  fishing_rod_basic: {
     id: 'fishing_rod_basic',
-    name: 'Fishing Rod',
-    category: 'tool',
-    ingredients: {
-      wood: 3,
-      plant_fibers: 2
-    },
-    output: {
-      itemId: 'fishing_rod_basic',
-      amount: 1
-    }
+    name: 'Basic Fishing Rod',
+    icon: '🎣',
+    type: 'tool',
+    toolType: 'fishing_rod',
+    durability: CONFIG.TOOL.DEFAULT_DURABILITY,
   },
-  {
+  pickaxe_basic: {
     id: 'pickaxe_basic',
-    name: 'Pickaxe',
-    category: 'tool',
-    ingredients: {
-      wood: 2,
-      stone: 3
-    },
-    output: {
-      itemId: 'pickaxe_basic',
-      amount: 1
-    }
+    name: 'Basic Pickaxe',
+    icon: '⛏️',
+    type: 'tool',
+    toolType: 'pickaxe',
+    durability: CONFIG.TOOL.DEFAULT_DURABILITY,
   },
-  {
+  axe_basic: {
     id: 'axe_basic',
-    name: 'Axe',
-    category: 'tool',
-    ingredients: {
-      wood: 3,
-      stone: 2
-    },
-    output: {
-      itemId: 'axe_basic',
-      amount: 1
-    }
-  }
-]);
+    name: 'Basic Axe',
+    icon: '🪓',
+    type: 'tool',
+    toolType: 'axe',
+    durability: CONFIG.TOOL.DEFAULT_DURABILITY,
+  },
+  sickle_basic: {
+    id: 'sickle_basic',
+    name: 'Basic Sickle',
+    icon: '🌾',
+    type: 'tool',
+    toolType: 'sickle',
+    durability: CONFIG.TOOL.DEFAULT_DURABILITY,
+  },
+  
+  // Resources
+  fish_clownfish: {
+    id: 'fish_clownfish',
+    name: 'Clownfish',
+    icon: '🐠',
+    type: 'resource',
+    stackable: true,
+    maxStack: CONFIG.INVENTORY.MAX_STACK_SIZE,
+  },
+  fish_tuna: {
+    id: 'fish_tuna',
+    name: 'Tuna',
+    icon: '🐟',
+    type: 'resource',
+    stackable: true,
+    maxStack: CONFIG.INVENTORY.MAX_STACK_SIZE,
+  },
+  reed: {
+    id: 'reed',
+    name: 'Reed',
+    icon: '🌾',
+    type: 'resource',
+    stackable: true,
+    maxStack: CONFIG.INVENTORY.MAX_STACK_SIZE,
+  },
+  fiber: {
+    id: 'fiber',
+    name: 'Fiber',
+    icon: '🧵',
+    type: 'resource',
+    stackable: true,
+    maxStack: CONFIG.INVENTORY.MAX_STACK_SIZE,
+  },
+  stone: {
+    id: 'stone',
+    name: 'Stone',
+    icon: '🪨',
+    type: 'resource',
+    stackable: true,
+    maxStack: CONFIG.INVENTORY.MAX_STACK_SIZE,
+  },
+  iron_ore: {
+    id: 'iron_ore',
+    name: 'Iron Ore',
+    icon: '🔶',
+    type: 'resource',
+    stackable: true,
+    maxStack: CONFIG.INVENTORY.MAX_STACK_SIZE,
+  },
+  copper_ore: {
+    id: 'copper_ore',
+    name: 'Copper Ore',
+    icon: '🟠',
+    type: 'resource',
+    stackable: true,
+    maxStack: CONFIG.INVENTORY.MAX_STACK_SIZE,
+  },
+  wood_oak: {
+    id: 'wood_oak',
+    name: 'Oak Wood',
+    icon: '🪵',
+    type: 'resource',
+    stackable: true,
+    maxStack: CONFIG.INVENTORY.MAX_STACK_SIZE,
+  },
+  wood_pine: {
+    id: 'wood_pine',
+    name: 'Pine Wood',
+    icon: '🌲',
+    type: 'resource',
+    stackable: true,
+    maxStack: CONFIG.INVENTORY.MAX_STACK_SIZE,
+  },
+  resin: {
+    id: 'resin',
+    name: 'Resin',
+    icon: '💧',
+    type: 'resource',
+    stackable: true,
+    maxStack: CONFIG.INVENTORY.MAX_STACK_SIZE,
+  },
+};
 
-console.log('[content.js] Loaded', Object.keys(ITEMS).length, 'items,', TOOLS.length, 'tools,', RESOURCE_NODES.length, 'nodes,', RECIPES.length, 'recipes');
+// Validate all items
+Object.entries(ITEMS).forEach(([id, item]) => {
+  if (!validateItem(item)) {
+    console.error(`[Content] Removing invalid item: ${id}`);
+    delete ITEMS[id];
+  }
+});
+
+// ============ Grids ============
+
+export const GRIDS = {
+  meadow_01: {
+    id: 'meadow_01',
+    name: 'Meadow',
+    width: 10,
+    height: 10,
+    description: 'A peaceful meadow with various resource nodes.',
+    blockedCells: [
+      [4, 4], [4, 5], [5, 4],
+    ],
+  },
+};
+
+// Validate all grids
+Object.entries(GRIDS).forEach(([id, grid]) => {
+  if (!validateGrid(grid)) {
+    console.error(`[Content] Grid ${id} is invalid`);
+  }
+});
+
+console.log(`[Content] Loaded: ${RESOURCE_NODES.length} nodes, ${Object.keys(ITEMS).length} items, ${Object.keys(GRIDS).length} grids`);
