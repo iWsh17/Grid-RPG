@@ -1,78 +1,52 @@
 /**
- * Main - Game initialization with tools
+ * main.js - Application initialization
  */
 
-import EventBus from './core/EventBus.js';
-import GameState from './core/GameState.js';
-import { SkillsSystem } from './systems/SkillsSystem.js';
-import InventorySystem from './systems/InventorySystem.js';
-import CraftingSystem from './systems/CraftingSystem.js';
-import ToolSystem from './systems/ToolSystem.js';
-import { RESOURCE_NODES } from '../content.js';
+import { save, load } from './core/GameState.js';
+import { on, emit } from './core/EventBus.js';
+import { createInitialState } from './core/WorldState.js';
 
-window.EventBus = EventBus;
-window.GameState = GameState;
-window.SkillsSystem = SkillsSystem;
-window.InventorySystem = InventorySystem;
-window.CraftingSystem = CraftingSystem;
-window.ToolSystem = ToolSystem;
+// These modules attach to window
+import './core/DataLoader.js';
+import './core/Utils.js';
+import './systems/InventorySystem.js';
+import './systems/SkillsSystem.js';
+import './systems/ToolSystem.js';
+import './systems/CraftingSystem.js';
 
-async function initialize() {
-  console.log('[Main] Initializing...');
+// Import game logic
+import './game.js';
+
+/**
+ * Initialize the game
+ */
+function init() {
+  console.log('[main] Initializing...');
   
-  SkillsSystem.initialize({ 
-    skills: [
-      { id: 'fishing', name: 'Fishing', xpPerLevel: 100, maxLevel: 10 },
-      { id: 'mining', name: 'Mining', xpPerLevel: 100, maxLevel: 10 },
-      { id: 'woodcutting', name: 'Woodcutting', xpPerLevel: 100, maxLevel: 10 }
-    ] 
-  });
-  
-  InventorySystem.initialize({ 
-    resources: Object.values(window.ITEMS || {}).map(item => ({
-      id: item.id,
-      stackSize: item.stackSize || 999
-    }))
-  });
-  
-  CraftingSystem.initialize();
-  ToolSystem.initialize();
-  
-  const state = {
-    player: { x: 1, y: 1, id: 'player_1', equippedTool: null },
-    inventory: {},
-    storage: {},
-    toolDurability: {},
-    skills: {
-      fishing: { xp: 0, level: 0, totalXp: 0 },
-      mining: { xp: 0, level: 0, totalXp: 0 },
-      woodcutting: { xp: 0, level: 0, totalXp: 0 }
-    },
-    capabilities: {},
-    resourceNodes: RESOURCE_NODES.map(node => ({
-      id: node.id,
-      x: node.x,
-      y: node.y,
-      quantity: node.maxQuantity,
-      lastDepleted: null
-    }))
-  };
-  
-  window.state = state;
-  
-  console.log('[Main] ✅ Ready');
-  console.log('[Main] Resource nodes:', state.resourceNodes.length);
-  
-  EventBus.emit('game.initialized', { state });
-  return { state };
+  try {
+    // Try to load saved state
+    const savedState = load();
+    
+    if (savedState) {
+      window.state = savedState;
+      console.log('[main] Loaded saved state');
+    } else {
+      window.state = createInitialState();
+      console.log('[main] Created new state');
+    }
+    
+    // Emit initialization complete
+    emit('game:ready', { state: window.state });
+    
+    console.log('[main] Initialization complete');
+  } catch (error) {
+    console.error('[main] Initialization failed:', error);
+    
+    // Create fallback state
+    window.state = createInitialState();
+    emit('game:ready', { state: window.state });
+  }
 }
 
-window.showState = () => { console.log(window.state); return window.state; };
-window.saveGame = () => GameState.save(window.state);
-window.resetGame = () => { GameState.clear(); location.reload(); };
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initialize);
-} else {
-  initialize();
-}
+// Start initialization
+init();
