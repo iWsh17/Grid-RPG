@@ -1,50 +1,78 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Grid RPG Foundation</title>
-  <link rel="stylesheet" href="styles.css">
-  <link rel="stylesheet" href="biome.css">
+  <title>Grid RPG</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <main class="app-shell">
-    <header class="topbar">
-      <div>
-        <p class="eyebrow">Foundation Build 019</p>
-        <h1>Grid RPG Prototype</h1>
+  <div class="game-container">
+    <header class="game-header">
+      <h1>Grid RPG</h1>
+      <div class="header-controls">
+        <span id="status-badge" class="status-badge">Loading...</span>
+        <button id="reset-button" class="reset-button">Reset</button>
       </div>
-      <button id="reset-button" class="button button-danger" type="button">Reset</button>
     </header>
-    <section class="layout">
-      <!-- Dev Panel - Left Side -->
-      <aside class="side-column dev-column">
-        <section class="panel"><p class="eyebrow">Player state</p><h2>Inspector</h2><dl id="state-inspector" class="state-list"></dl></section>
-        <section class="panel console-panel"><p class="eyebrow">Developer tools</p><h2>Console</h2><div id="console-output" class="console-output" aria-live="polite"></div><form id="console-form" class="console-form"><label for="console-input">Command</label><div class="console-input-row"><input id="console-input" autocomplete="off" placeholder="help" spellcheck="false"><button class="button" type="submit">Run</button></div></form><p class="help-text">Try: <code>help</code>, <code>state</code>, <code>teleport x y</code>, or <code>reset</code>.</p></section>
-      </aside>
-      
-      <!-- Game World - Center -->
-      <section class="panel world-panel" aria-labelledby="world-heading">
-        <div class="panel-heading">
-          <div><p class="eyebrow">World</p><h2 id="world-heading">Movement Test</h2></div>
-          <span id="status-badge" class="status-badge">Ready</span>
-        </div>
-        <div id="grid" class="grid" aria-label="Game grid" tabindex="0"></div>
+
+    <main class="game-main">
+      <section class="game-section">
+        <div id="grid" class="grid"></div>
         <div id="action-bar" class="action-bar" style="display: none;">
           <div class="action-bar-fill"></div>
-          <span class="action-bar-text">Gathering...</span>
+          <span class="action-bar-text">Action...</span>
         </div>
-        <p class="help-text">Move with W A S D or the arrow keys. Blue is the player. Dark cells are blocked.</p>
       </section>
-      
-      <!-- Shippable UI - Right Side -->
-      <aside class="side-column ui-column">
-        <section class="panel"><p class="eyebrow">Inventory</p><h2>Items</h2><div id="inventory-grid" class="inventory-grid"></div></section>
-        <section class="panel"><p class="eyebrow">Equipment</p><h2>Equipped</h2><div id="equipped-slot" class="equipped-slot"></div></section>
-        <section class="panel"><p class="eyebrow">Skills</p><h2>Professions</h2><div id="skills-list" class="skills-list"></div></section>
+
+      <aside class="sidebar">
+        <div class="panel">
+          <h2>State Inspector</h2>
+          <dl id="state-inspector" class="state-inspector"></dl>
+        </div>
+
+        <div class="panel">
+          <h2>Inventory</h2>
+          <div id="inventory-grid" class="inventory-grid"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Skills</h2>
+          <div id="skills-list" class="skills-list"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Equipped</h2>
+          <div id="equipped-slot" class="equipped-slot"></div>
+        </div>
+
+        <div class="panel">
+          <h2>Console</h2>
+          <form id="console-form" class="console-form">
+            <input 
+              type="text" 
+              id="console-input" 
+              class="console-input" 
+              placeholder="Type 'help' for commands..."
+              autocomplete="off"
+            >
+          </form>
+          <div id="console-output" class="console-output"></div>
+        </div>
       </aside>
-    </section>
-  </main>
+    </main>
+  </div>
+
+  <script type="module" src="content.js"></script>
+  <script type="module" src="Js/core/DataLoader.js"></script>
+  <script type="module" src="Js/core/EventBus.js"></script>
+  <script type="module" src="Js/core/Utils.js"></script>
+  <script type="module" src="Js/core/GameState.js"></script>
+  <script type="module" src="Js/core/WorldState.js"></script>
+  <script type="module" src="Js/systems/InventorySystem.js"></script>
+  <script type="module" src="Js/systems/SkillsSystem.js"></script>
+  <script type="module" src="Js/systems/ToolSystem.js"></script>
+  <script type="module" src="Js/systems/CraftingSystem.js"></script>
   <script type="module" src="Js/main.js"></script>
   <script type="module" src="Js/game.js"></script>
 </body>
