@@ -1,7 +1,10 @@
 /**
  * game.js - Movement and gathering with resource nodes and action timers
  * 
- * CHANGES: Added error boundaries to prevent crashes
+ * CHANGES (P0 Complete):
+ * 1. Added error boundaries to prevent crashes
+ * 2. Fixed memory leak - setInterval now tracked and can be cleaned up
+ * 3. Exposed debug functions to global scope for testing
  */
 
 
@@ -36,6 +39,10 @@ let state = null;
 
 // Action timer state
 let currentAction = null; // { type: 'gathering', nodeId, startTime, duration, onComplete }
+
+
+// Game loop timers - FIXED: Now tracked so they can be cleaned up
+let respawnInterval = null;
 
 
 // ============ Error Boundary ============
@@ -314,30 +321,49 @@ function hideActionBar() {
 }
 
 
-// Auto-respawn resource nodes every second
-setInterval(() => {
-  if (!state?.resourceNodes) return;
-  
-  const now = Date.now();
-  let needsRender = false;
-  
-  state.resourceNodes.forEach(nodeState => {
-    if (nodeState.quantity <= 0 && nodeState.lastDepleted) {
-      const nodeDef = RESOURCE_NODES.find(n => n.id === nodeState.id);
-      const timeSince = now - nodeState.lastDepleted;
-      
-      if (timeSince >= nodeDef.respawnTime) {
-        nodeState.quantity = nodeDef.maxQuantity;
-        nodeState.lastDepleted = null;
-        needsRender = true;
-      }
-    }
-  });
-  
-  if (needsRender) {
-    render();
+// ============ Game Loop - FIXED ============
+
+function startRespawnLoop() {
+  // Clear any existing interval first
+  if (respawnInterval) {
+    clearInterval(respawnInterval);
   }
-}, 1000);
+  
+  respawnInterval = setInterval(() => {
+    if (!state?.resourceNodes) return;
+    
+    const now = Date.now();
+    let needsRender = false;
+    
+    state.resourceNodes.forEach(nodeState => {
+      if (nodeState.quantity <= 0 && nodeState.lastDepleted) {
+        const nodeDef = RESOURCE_NODES.find(n => n.id === nodeState.id);
+        const timeSince = now - nodeState.lastDepleted;
+        
+        if (timeSince >= nodeDef.respawnTime) {
+          nodeState.quantity = nodeDef.maxQuantity;
+          nodeState.lastDepleted = null;
+          needsRender = true;
+        }
+      }
+    });
+    
+    if (needsRender) {
+      render();
+    }
+  }, 1000);
+  
+  console.log('[Game Loop] Respawn loop started');
+}
+
+
+function stopRespawnLoop() {
+  if (respawnInterval) {
+    clearInterval(respawnInterval);
+    respawnInterval = null;
+    console.log('[Game Loop] Respawn loop stopped');
+  }
+}
 
 
 // ============ Actions ============
@@ -610,6 +636,12 @@ function executeCommand(raw) {
     elements.consoleOutput?.replaceChildren();
   } else if (command === 'reset') {
     location.reload();
+  } else if (command === 'stop') {
+    stopRespawnLoop();
+    write('Respawn loop stopped', 'system');
+  } else if (command === 'start') {
+    startRespawnLoop();
+    write('Respawn loop started', 'system');
   } else {
     write(`Unknown: ${command}. Type help.`, 'error');
   }
@@ -665,6 +697,15 @@ function init() {
   window.executeCommand = executeCommand;
   window.render = render;
   window.show = show;
+  
+  // FIXED: Start respawn loop with tracking
+  startRespawnLoop();
+  
+  // EXPOSED: For debugging/testing
+  window.startRespawnLoop = startRespawnLoop;
+  window.stopRespawnLoop = stopRespawnLoop;
+  window.getRespawnInterval = () => respawnInterval;
+  
   console.log('[game.js] Initialized');
 }
 
