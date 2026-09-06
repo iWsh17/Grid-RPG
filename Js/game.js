@@ -1,5 +1,7 @@
 /**
  * game.js - Movement and gathering with resource nodes and action timers
+ * 
+ * CHANGES: Added error boundaries to prevent crashes
  */
 
 
@@ -36,6 +38,18 @@ let state = null;
 let currentAction = null; // { type: 'gathering', nodeId, startTime, duration, onComplete }
 
 
+// ============ Error Boundary ============
+
+function safeRender(fn, fallback, context = '') {
+  try {
+    return fn();
+  } catch (error) {
+    console.error(`[Render Error${context ? ` in ${context}` : ''}]`, error);
+    return fallback;
+  }
+}
+
+
 // ============ UI Functions ============
 
 
@@ -54,159 +68,177 @@ function inventoryText() {
 
 
 function render() {
-  if (!elements.grid) return;
-  
-  elements.grid.replaceChildren();
-  for (let y = 0; y < currentGrid.height; y++) {
-    for (let x = 0; x < currentGrid.width; x++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      
-      const isBlocked = currentGrid.blockedCells?.some(([bx, by]) => bx === x && by === y);
-      if (isBlocked) {
-        cell.classList.add('blocked');
-        cell.title = 'Blocked';
-      }
-      
-      const nodeState = state.resourceNodes?.find(n => n.x === x && n.y === y);
-      if (nodeState) {
-        const nodeDef = RESOURCE_NODES.find(n => n.id === nodeState.id);
-        cell.classList.add('resource-node');
-        cell.textContent = nodeDef.icon;
-        cell.title = `${nodeDef.name} (${nodeState.quantity}/${nodeDef.maxQuantity})`;
+  safeRender(() => {
+    if (!elements.grid) return;
+    
+    elements.grid.replaceChildren();
+    for (let y = 0; y < currentGrid.height; y++) {
+      for (let x = 0; x < currentGrid.width; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
         
-        if (nodeState.quantity <= 0) {
-          cell.classList.add('depleted');
+        const isBlocked = currentGrid.blockedCells?.some(([bx, by]) => bx === x && by === y);
+        if (isBlocked) {
+          cell.classList.add('blocked');
+          cell.title = 'Blocked';
         }
+        
+        const nodeState = state.resourceNodes?.find(n => n.x === x && n.y === y);
+        if (nodeState) {
+          const nodeDef = RESOURCE_NODES.find(n => n.id === nodeState.id);
+          cell.classList.add('resource-node');
+          cell.textContent = nodeDef.icon;
+          cell.title = `${nodeDef.name} (${nodeState.quantity}/${nodeDef.maxQuantity})`;
+          
+          if (nodeState.quantity <= 0) {
+            cell.classList.add('depleted');
+          }
+        }
+        
+        if (state?.player?.x === x && state?.player?.y === y) {
+          cell.classList.add('player');
+          cell.title = 'Player';
+        }
+        
+        elements.grid.append(cell);
       }
-      
-      if (state?.player?.x === x && state?.player?.y === y) {
-        cell.classList.add('player');
-        cell.title = 'Player';
-      }
-      
-      elements.grid.append(cell);
     }
-  }
-  
-  elements.grid.style.gridTemplateColumns = `repeat(${currentGrid.width}, 1fr)`;
-  elements.grid.style.gridTemplateRows = `repeat(${currentGrid.height}, 1fr)`;
-  
-  const foragingSkill = state?.skills?.foraging || { level: 0, totalXp: 0 };
-  const miningSkill = state?.skills?.mining || { level: 0, totalXp: 0 };
-  
-  if (elements.inspector) {
-    elements.inspector.innerHTML = `
-      <dt>Position</dt><dd>${state?.player?.x || 0}, ${state?.player?.y || 0}</dd>
-      <dt>Foraging</dt><dd>Level ${foragingSkill.level} (${foragingSkill.totalXp || foragingSkill.xp || 0} XP)</dd>
-      <dt>Mining</dt><dd>Level ${miningSkill.level} (${miningSkill.totalXp || miningSkill.xp || 0} XP)</dd>
-      <dt>Inventory</dt><dd>${inventoryText()}</dd>
-    `;
-  }
-  
-  renderInventory();
-  renderSkills();
-  renderEquipped();
+    
+    elements.grid.style.gridTemplateColumns = `repeat(${currentGrid.width}, 1fr)`;
+    elements.grid.style.gridTemplateRows = `repeat(${currentGrid.height}, 1fr)`;
+    
+    const foragingSkill = state?.skills?.foraging || { level: 0, totalXp: 0 };
+    const miningSkill = state?.skills?.mining || { level: 0, totalXp: 0 };
+    
+    if (elements.inspector) {
+      elements.inspector.innerHTML = `
+        <dt>Position</dt><dd>${state?.player?.x || 0}, ${state?.player?.y || 0}</dd>
+        <dt>Foraging</dt><dd>Level ${foragingSkill.level} (${foragingSkill.totalXp || foragingSkill.xp || 0} XP)</dd>
+        <dt>Mining</dt><dd>Level ${miningSkill.level} (${miningSkill.totalXp || miningSkill.xp || 0} XP)</dd>
+        <dt>Inventory</dt><dd>${inventoryText()}</dd>
+      `;
+    }
+    
+    renderInventory();
+    renderSkills();
+    renderEquipped();
+  }, null, 'render');
 }
 
 
 function renderInventory() {
-  const grid = document.getElementById('inventory-grid');
-  if (!grid || !state?.inventory) return;
-  
-  grid.replaceChildren();
-  
-  const items = Object.entries(state.inventory)
-    .filter(([, amount]) => amount > 0);
-  
-  if (items.length === 0) {
-    grid.innerHTML = '<p style="color: var(--muted); font-size: 0.75rem; padding: 8px;">Empty</p>';
-    return;
-  }
-  
-  items.forEach(([itemId, amount]) => {
-    const itemDef = ITEMS[itemId];
-    const slot = document.createElement('div');
-    slot.className = 'inventory-slot';
-    slot.title = `${itemDef?.name || itemId} x${amount}`;
+  safeRender(() => {
+    const grid = document.getElementById('inventory-grid');
+    if (!grid || !state?.inventory) return;
     
-    slot.innerHTML = `
-      <span class="item-icon">${itemDef?.icon || '📦'}</span>
-      <span class="item-count">${amount}</span>
-    `;
+    grid.replaceChildren();
     
-    // Make all inventory items clickable to equip
-    slot.style.cursor = 'pointer';
-    slot.onclick = (e) => {
-      e.stopPropagation();
-      const result = window.ToolSystem.equipTool(state, itemId);
-      show(result);
-    };
+    const items = Object.entries(state.inventory)
+      .filter(([, amount]) => amount > 0);
     
-    grid.append(slot);
-  });
+    if (items.length === 0) {
+      grid.innerHTML = '<p style="color: var(--muted); font-size: 0.75rem; padding: 8px;">Empty</p>';
+      return;
+    }
+    
+    items.forEach(([itemId, amount]) => {
+      const itemDef = ITEMS[itemId];
+      
+      if (!itemDef) {
+        console.warn(`[renderInventory] Unknown item: ${itemId}`);
+        return;
+      }
+      
+      const slot = document.createElement('div');
+      slot.className = 'inventory-slot';
+      slot.title = `${itemDef.name || itemId} x${amount}`;
+      
+      slot.innerHTML = `
+        <span class="item-icon">${itemDef.icon || '📦'}</span>
+        <span class="item-count">${amount}</span>
+      `;
+      
+      slot.style.cursor = 'pointer';
+      slot.onclick = (e) => {
+        e.stopPropagation();
+        const result = window.ToolSystem.equipTool(state, itemId);
+        show(result);
+      };
+      
+      grid.append(slot);
+    });
+  }, null, 'renderInventory');
 }
 
 
 function renderSkills() {
-  const container = document.getElementById('skills-list');
-  if (!container || !state?.skills) return;
-  
-  container.replaceChildren();
-  
-  const skillDefs = [
-    { id: 'fishing', name: 'Fishing', icon: '🎣' },
-    { id: 'mining', name: 'Mining', icon: '⛏️' },
-    { id: 'foraging', name: 'Foraging', icon: '🌿' },
-    { id: 'woodcutting', name: 'Woodcutting', icon: '🪓' }
-  ];
-  
-  skillDefs.forEach(skillDef => {
-    const skill = state.skills[skillDef.id] || { level: 0, totalXp: 0 };
-    const xpForNextLevel = skill.level * 100 || 100;
-    const xpInCurrentLevel = skill.totalXp % 100;
-    const progress = (xpInCurrentLevel / xpForNextLevel) * 100;
+  safeRender(() => {
+    const container = document.getElementById('skills-list');
+    if (!container || !state?.skills) return;
     
-    const row = document.createElement('div');
-    row.className = 'skill-row';
-    row.innerHTML = `
-      <div class="skill-info">
-        <span class="skill-name">${skillDef.icon} ${skillDef.name}</span>
-        <span class="skill-level">Level ${skill.level}</span>
-      </div>
-      <div class="xp-bar">
-        <div class="xp-fill" style="width: ${progress}%"></div>
-        <span class="xp-text">${Math.floor(xpInCurrentLevel)}/${xpForNextLevel} XP</span>
-      </div>
-    `;
+    container.replaceChildren();
     
-    container.append(row);
-  });
+    const skillDefs = [
+      { id: 'fishing', name: 'Fishing', icon: '🎣' },
+      { id: 'mining', name: 'Mining', icon: '⛏️' },
+      { id: 'foraging', name: 'Foraging', icon: '🌿' },
+      { id: 'woodcutting', name: 'Woodcutting', icon: '🪓' }
+    ];
+    
+    skillDefs.forEach(skillDef => {
+      const skill = state.skills[skillDef.id] || { level: 0, totalXp: 0 };
+      const xpForNextLevel = skill.level * 100 || 100;
+      const xpInCurrentLevel = skill.totalXp % 100;
+      const progress = (xpInCurrentLevel / xpForNextLevel) * 100;
+      
+      const row = document.createElement('div');
+      row.className = 'skill-row';
+      row.innerHTML = `
+        <div class="skill-info">
+          <span class="skill-name">${skillDef.icon} ${skillDef.name}</span>
+          <span class="skill-level">Level ${skill.level}</span>
+        </div>
+        <div class="xp-bar">
+          <div class="xp-fill" style="width: ${progress}%"></div>
+          <span class="xp-text">${Math.floor(xpInCurrentLevel)}/${xpForNextLevel} XP</span>
+        </div>
+      `;
+      
+      container.append(row);
+    });
+  }, null, 'renderSkills');
 }
 
 
 function renderEquipped() {
-  const container = document.getElementById('equipped-slot');
-  if (!container || !state?.player) return;
-  
-  const equippedTool = state.player.equippedTool;
-  
-  if (!equippedTool) {
-    container.innerHTML = '<p class="equipped-empty">Nothing equipped</p>';
-    return;
-  }
-  
-  // equippedTool is now a string (itemId), not an object
-  const itemId = typeof equippedTool === 'string' ? equippedTool : equippedTool.itemId;
-  const itemDef = ITEMS[itemId];
-  
-  container.innerHTML = `
-    <div class="equipped-item" onclick="window.unequipTool()">
-      <span class="item-icon">${itemDef?.icon || '📦'}</span>
-      <span class="item-name">${itemDef?.name || itemId}</span>
-      <span class="unequip-hint">Click to unequip</span>
-    </div>
-  `;
+  safeRender(() => {
+    const container = document.getElementById('equipped-slot');
+    if (!container || !state?.player) return;
+    
+    const equippedTool = state.player.equippedTool;
+    
+    if (!equippedTool) {
+      container.innerHTML = '<p class="equipped-empty">Nothing equipped</p>';
+      return;
+    }
+    
+    const itemId = typeof equippedTool === 'string' ? equippedTool : equippedTool.itemId;
+    const itemDef = ITEMS[itemId];
+    
+    if (!itemDef) {
+      console.warn(`[renderEquipped] Unknown equipped item: ${itemId}`);
+      container.innerHTML = `<p class="equipped-empty">Unknown item: ${itemId}</p>`;
+      return;
+    }
+    
+    container.innerHTML = `
+      <div class="equipped-item" onclick="window.unequipTool()">
+        <span class="item-icon">${itemDef.icon || '📦'}</span>
+        <span class="item-name">${itemDef.name || itemId}</span>
+        <span class="unequip-hint">Click to unequip</span>
+      </div>
+    `;
+  }, null, 'renderEquipped');
 }
 
 
@@ -229,9 +261,16 @@ function write(message, type = 'system') {
 
 
 function show(result) {
-  setStatus(result.success ? 'Ready' : 'Failed');
-  write(`${result.code}: ${result.message}`, result.success ? 'system' : 'error');
-  render();
+  safeRender(() => {
+    if (!result || typeof result !== 'object') {
+      console.error('[show] Invalid result:', result);
+      return;
+    }
+    
+    setStatus(result.success ? 'Ready' : 'Failed');
+    write(`${result.code}: ${result.message}`, result.success ? 'system' : 'error');
+    render();
+  }, null, 'show');
 }
 
 
