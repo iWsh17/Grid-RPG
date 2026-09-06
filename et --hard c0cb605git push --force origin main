@@ -1,0 +1,20 @@
+[33mda1f837[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix main.js with correct imports and state creation
+[33m13b6909[m Fix EventBus imports to use named exports
+[33maeeb12e[m Add TOOLS and RECIPES exports for systems
+[33m849f385[m Add validation and config usage to content.js
+[33m5d08234[m Add centralized config.js for magic numbers
+[33m11e094d[m Fix EventBus memory leaks with unsubscribe and error handling
+[33m5180fc2[m Add error handling and versioning to GameState"
+[33m9a24d0a[m Add CSS link and viewport meta tag
+[33m520cb9b[m Organize CSS into css/style.css
+[33m1eafb27[m Remove duplicate and dead code
+[33me3de972[m pushing again
+[33m4ecb4a2[m sanitization
+[33m4faf969[m fixed error boundaries and memory leak
+[33mc96abfc[m Merge branch 'main' of https://github.com/iWsh17/Grid-RPG
+[33m18327f8[m changed for todays refactor
+[33md13fb4a[m changed folder case sensitive names
+[33mc0cb605[m current stable version after adding clicking items in inventory so it can be equipped
+[33m7b99580[m did a full refactor to allow for smoother implementation of future features
+[33mb11c03b[m added skill ui and made sure it's tracking live xp as nodes are gathered
+[33m32bd42f[m Add data-driven skills system foundation
