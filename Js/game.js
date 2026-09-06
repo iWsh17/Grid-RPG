@@ -1,10 +1,11 @@
 /**
  * game.js - Movement and gathering with resource nodes and action timers
  * 
- * CHANGES (P0 Complete):
+ * CHANGES (P0 Complete + Security):
  * 1. Added error boundaries to prevent crashes
  * 2. Fixed memory leak - setInterval now tracked and can be cleaned up
  * 3. Exposed debug functions to global scope for testing
+ * 4. ADDED: Input sanitization for console commands (security)
  */
 
 
@@ -54,6 +55,67 @@ function safeRender(fn, fallback, context = '') {
     console.error(`[Render Error${context ? ` in ${context}` : ''}]`, error);
     return fallback;
   }
+}
+
+
+// ============ Input Sanitization ============
+
+/**
+ * Sanitize item ID - only allow alphanumeric and underscore
+ */
+function sanitizeItemId(id) {
+  if (typeof id !== 'string') return '';
+  return id.replace(/[^a-z0-9_]/gi, '').slice(0, 50);
+}
+
+
+/**
+ * Sanitize amount - must be positive integer, clamp to valid range
+ */
+function sanitizeAmount(amount) {
+  const parsed = parseInt(amount);
+  if (isNaN(parsed) || parsed < 1) return 1;
+  return Math.min(999, parsed);
+}
+
+
+/**
+ * Sanitize skill name
+ */
+function sanitizeSkillName(name) {
+  if (typeof name !== 'string') return '';
+  return name.replace(/[^a-z0-9_]/gi, '').toLowerCase().slice(0, 30);
+}
+
+
+/**
+ * Sanitize XP amount
+ */
+function sanitizeXP(amount) {
+  const parsed = parseInt(amount);
+  if (isNaN(parsed) || parsed < 0) return 0;
+  return Math.min(10000, parsed);
+}
+
+
+/**
+ * Sanitize level
+ */
+function sanitizeLevel(level) {
+  const parsed = parseInt(level);
+  if (isNaN(parsed) || parsed < 0) return 0;
+  return Math.min(100, parsed);
+}
+
+
+/**
+ * Sanitize teleport coordinates
+ */
+function sanitizeCoordinate(coord) {
+  const parsed = parseInt(coord);
+  if (isNaN(parsed)) return 0;
+  // Clamp to reasonable grid bounds
+  return Math.max(-100, Math.min(1000, parsed));
 }
 
 
@@ -397,14 +459,19 @@ function move(dx, dy) {
 
 
 function teleport(x, y) {
-  if (x < 0 || x >= currentGrid.width || y < 0 || y >= currentGrid.height) {
-    show({ success: false, code: 'INVALID', message: 'Invalid position.' });
+  // SECURITY: Validate coordinates
+  const safeX = sanitizeCoordinate(x);
+  const safeY = sanitizeCoordinate(y);
+  
+  if (safeX < 0 || safeX >= currentGrid.width || safeY < 0 || safeY >= currentGrid.height) {
+    show({ success: false, code: 'INVALID', message: 'Invalid position. Use coordinates within grid bounds.' });
     return;
   }
-  state.player.x = x;
-  state.player.y = y;
+  
+  state.player.x = safeX;
+  state.player.y = safeY;
   render();
-  show({ success: true, code: 'TELEPORTED', message: `Teleported to ${x},${y}` });
+  show({ success: true, code: 'TELEPORTED', message: `Teleported to ${safeX},${safeY}` });
 }
 
 
@@ -550,7 +617,9 @@ function executeGather(nodeDef, nodeState) {
 
 
 function executeCommand(raw) {
-  const [command, ...args] = raw.trim().toLowerCase().split(/\s+/);
+  // SECURITY: Sanitize the raw input
+  const safeRaw = raw.slice(0, 200); // Limit total length
+  const [command, ...args] = safeRaw.trim().toLowerCase().split(/\s+/);
   if (!command) return;
   
   if (command === 'help') {
@@ -560,11 +629,15 @@ function executeCommand(raw) {
   } else if (command === 'state') {
     write(JSON.stringify(state, null, 2));
   } else if (command === 'teleport') {
-    teleport(Number(args[0]), Number(args[1]));
+    // SECURITY: Sanitize coordinates
+    const x = sanitizeCoordinate(args[0]);
+    const y = sanitizeCoordinate(args[1]);
+    teleport(x, y);
   } else if (command === 'gather') {
     gather();
   } else if (command === 'equip') {
-    const toolId = args[0];
+    // SECURITY: Sanitize tool ID
+    const toolId = sanitizeItemId(args[0]);
     if (!toolId) {
       write('Usage: equip <tool_id>. Example: equip fishing_rod_basic', 'error');
       return;
@@ -575,7 +648,8 @@ function executeCommand(raw) {
     const result = ToolSystem.unequipTool(state);
     show(result);
   } else if (command === 'craft') {
-    const recipeId = args[0];
+    // SECURITY: Sanitize recipe ID
+    const recipeId = sanitizeItemId(args[0]);
     if (!recipeId) {
       write('Usage: craft <recipe_id>. Example: craft fishing_rod_basic', 'error');
       return;
@@ -609,28 +683,34 @@ function executeCommand(raw) {
     window.GameState.save(state);
     write('SAVED', 'system');
   } else if (command === 'addxp') {
-    const [skill, amount] = args;
+    // SECURITY: Sanitize skill and XP
+    const skill = sanitizeSkillName(args[0]);
+    const amount = sanitizeXP(args[1]);
     if (!skill || !amount) {
       write('Usage: addxp <skill> <amount>. Example: addxp mining 100', 'error');
       return;
     }
-    const result = SkillsSystem.addXP(state, skill, parseInt(amount));
+    const result = SkillsSystem.addXP(state, skill, amount);
     show({ success: true, code: 'XP_ADDED', message: `Added ${amount} XP to ${skill}. Level: ${result.level}` });
   } else if (command === 'setlevel') {
-    const [skill, level] = args;
+    // SECURITY: Sanitize skill and level
+    const skill = sanitizeSkillName(args[0]);
+    const level = sanitizeLevel(args[1]);
     if (!skill || !level) {
       write('Usage: setlevel <skill> <level>. Example: setlevel mining 5', 'error');
       return;
     }
-    state.skills[skill] = { xp: 0, level: parseInt(level), totalXp: 0 };
+    state.skills[skill] = { xp: 0, level: level, totalXp: 0 };
     show({ success: true, code: 'LEVEL_SET', message: `Set ${skill} to level ${level}` });
   } else if (command === 'give') {
-    const [itemId, amount] = args;
+    // SECURITY: Sanitize item ID and amount
+    const itemId = sanitizeItemId(args[0]);
+    const amount = sanitizeAmount(args[1]);
     if (!itemId || !amount) {
       write('Usage: give <item_id> <amount>. Example: give iron_pickaxe 1', 'error');
       return;
     }
-    const result = InventorySystem.addItem(state, itemId, parseInt(amount));
+    const result = InventorySystem.addItem(state, itemId, amount);
     show({ success: result.success, code: result.success ? 'ITEM_GIVEN' : 'GIVE_FAILED', message: result.success ? `Gave ${amount} ${itemId}` : result.reason });
   } else if (command === 'clear') {
     elements.consoleOutput?.replaceChildren();
